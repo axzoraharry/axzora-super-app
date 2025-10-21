@@ -569,7 +569,14 @@ Need help? Just ask Mr. Happy!
 
 // Notification system
 function showNotification(message, type = 'info') {
+    console.log(`Notification [${type}]: ${message}`);
+    
     const container = document.getElementById('notifications');
+    if (!container) {
+        console.warn('Notifications container not found');
+        return;
+    }
+    
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
     notification.textContent = message;
@@ -578,12 +585,16 @@ function showNotification(message, type = 'info') {
     
     // Auto remove after 5 seconds
     setTimeout(() => {
-        notification.remove();
+        if (notification.parentNode) {
+            notification.remove();
+        }
     }, 5000);
     
     // Remove on click
     notification.addEventListener('click', () => {
-        notification.remove();
+        if (notification.parentNode) {
+            notification.remove();
+        }
     });
 }
 
@@ -607,7 +618,57 @@ function enterApp() {
 }
 
 function skipPermissions() {
-    app.skipPermissions();
+    console.log('skipPermissions called');
+    
+    if (!app) {
+        console.log('App not initialized yet, initializing...');
+        app = new HomeAssistantApp();
+        
+        // Wait a moment for initialization
+        setTimeout(() => {
+            app.skipPermissions();
+        }, 100);
+        return;
+    }
+    
+    try {
+        app.skipPermissions();
+    } catch (error) {
+        console.error('Error in skipPermissions:', error);
+        
+        // Fallback - directly manipulate DOM
+        fallbackSkipPermissions();
+    }
+}
+
+// Fallback function that works without the app object
+function fallbackSkipPermissions() {
+    console.log('Using fallback skip permissions');
+    
+    // Update permission items
+    const permissionItems = ['locationPermission', 'fingerprintPermission', 'cameraPermission'];
+    
+    permissionItems.forEach(itemId => {
+        const item = document.getElementById(itemId);
+        const btn = item?.querySelector('.permission-btn');
+        
+        if (item && btn) {
+            item.classList.add('granted');
+            btn.textContent = 'Granted';
+            btn.classList.add('granted');
+            btn.disabled = true;
+        }
+    });
+    
+    // Enable continue button
+    const continueBtn = document.getElementById('continueBtn');
+    if (continueBtn) {
+        continueBtn.disabled = false;
+        continueBtn.textContent = 'Enter Axzora Assistant';
+    }
+    
+    // Show notification
+    showNotification('⚡ All permissions granted! You can now continue.', 'success');
 }
 
 function connectWallet() {
@@ -677,6 +738,16 @@ function executeStaking() {
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     app = new HomeAssistantApp();
+    
+    // Add direct event listener for skip button as backup
+    const skipBtn = document.getElementById('skipBtn');
+    if (skipBtn) {
+        skipBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('Skip button clicked via event listener');
+            skipPermissions();
+        });
+    }
 });
 
 // Handle modal clicks outside content
