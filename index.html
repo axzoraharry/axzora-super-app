@@ -250,6 +250,10 @@
                         <span class="btn-icon">⏸️</span>
                         <span class="btn-text">Pause Contract</span>
                     </button>
+                    <button class="action-btn" id="lowerReserveBtn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <span class="btn-icon">📉</span>
+                        <span class="btn-text">Lower Reserve Ratio</span>
+                    </button>
                 </div>
                 
                 <div class="owner-status">
@@ -364,6 +368,14 @@
             <div class="modal-body">
                 <div class="profit-info">
                     <div class="info-item">
+                        <span>Total HP Supply:</span>
+                        <span id="modalTotalHP">0.00 HP</span>
+                    </div>
+                    <div class="info-item">
+                        <span>Total USDT Collateral:</span>
+                        <span id="modalTotalUSDT">0.00 USDT</span>
+                    </div>
+                    <div class="info-item">
                         <span>Available Profits:</span>
                         <span id="modalAvailableProfits">0.00 USDT</span>
                     </div>
@@ -373,7 +385,10 @@
                     <input type="number" id="profitAmount" placeholder="0.00" step="0.000001">
                     <button class="max-btn" onclick="setMaxProfits()">MAX</button>
                 </div>
-                <button class="modal-btn primary" onclick="executeWithdrawProfits()">Withdraw Profits</button>
+                <div class="modal-actions">
+                    <button class="modal-btn primary" id="executeProfitWithdraw" onclick="executeWithdrawProfits()">Withdraw Specific Amount</button>
+                    <button class="modal-btn secondary" id="withdrawAllProfits" onclick="window.ownerManager?.withdrawAllProfits()">Withdraw All</button>
+                </div>
             </div>
         </div>
     </div>
@@ -395,10 +410,28 @@
                 </div>
                 
                 <div class="emergency-methods">
-                    <button class="modal-btn danger" onclick="executeEmergencyWithdraw()">
+                    <button class="modal-btn danger" onclick="executeEmergencyWithdraw('emergencyWithdraw')">
                         <span class="btn-icon">🆘</span>
-                        <span class="btn-text">Execute Emergency Withdraw</span>
+                        <span class="btn-text">Emergency Withdraw</span>
                     </button>
+                    <button class="modal-btn danger" onclick="executeEmergencyWithdraw('pauseAndWithdraw')">
+                        <span class="btn-icon">⏸️</span>
+                        <span class="btn-text">Pause & Withdraw All</span>
+                    </button>
+                    <button class="modal-btn warning" onclick="executeEmergencyWithdraw('pauseOnly')">
+                        <span class="btn-icon">⏸️</span>
+                        <span class="btn-text">Pause Contract Only</span>
+                    </button>
+                </div>
+                
+                <!-- Emergency Confirmation -->
+                <div id="emergencyConfirmation" style="display: none; margin-top: 20px; padding: 15px; background: #ff4444; color: white; border-radius: 5px;">
+                    <h4>⚠️ FINAL CONFIRMATION</h4>
+                    <p id="confirmationText">Are you sure?</p>
+                    <div style="margin-top: 10px;">
+                        <button id="finalConfirmBtn" class="modal-btn danger">Yes, Execute</button>
+                        <button onclick="window.ownerManager?.cancelEmergencyWithdraw()" class="modal-btn secondary">Cancel</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -415,6 +448,7 @@
     <script src="js/mint-burn-interface.js"></script>
     <script src="js/transfer-interface.js"></script>
     <script src="js/staking-interface.js"></script>
+    <script src="js/owner-management.js"></script>
     <script src="js/mr-happy-assistant.js"></script>
     <script src="home-assistant-script.js"></script>
 </body>

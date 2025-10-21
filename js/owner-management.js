@@ -22,6 +22,7 @@ class OwnerManagement {
         document.getElementById('checkCollateralBtn')?.addEventListener('click', () => this.checkCollateralStatus());
         document.getElementById('pauseContractBtn')?.addEventListener('click', () => this.pauseContract());
         document.getElementById('resumeContractBtn')?.addEventListener('click', () => this.resumeContract());
+        document.getElementById('lowerReserveBtn')?.addEventListener('click', () => this.lowerReserveRatio());
 
         // Modal buttons
         document.getElementById('executeProfitWithdraw')?.addEventListener('click', () => this.withdrawSpecificAmount());
@@ -111,16 +112,33 @@ class OwnerManagement {
                 totalCollateralFormatted = rawCollateral.toFixed(6);
             }
 
-            // Calculate available profits
+            // Calculate available profits using contract's exact formula
+            // Users pay 11.55 USDT per HP: 11 USDT base + 0.55 USDT (5% profit)
+            // Contract keeps: 11 USDT base + 5% reserve = 11.55 USDT per HP
+            // So actually NO excess until reserve ratio drops!
             let availableProfits = 0;
             if (parseFloat(totalSupplyFormatted) > 0) {
-                const hpPriceUSDT = 10.5; // Base HP price
-                const baseCollateralNeeded = parseFloat(totalSupplyFormatted) * hpPriceUSDT;
-                const minRequiredCollateral = (baseCollateralNeeded * parseFloat(reserveRatio)) / 100;
-                availableProfits = Math.max(0, parseFloat(totalCollateralFormatted) - minRequiredCollateral);
+                const HP_TO_USDT_RATE = 11; // Base collateral per HP
+                const baseCollateral = parseFloat(totalSupplyFormatted) * HP_TO_USDT_RATE;
+                const reservePercentage = parseFloat(reserveRatio) / 100; // Convert to decimal
+                const requiredReserve = baseCollateral * reservePercentage; // 5% reserve
+                const totalRequired = baseCollateral + requiredReserve; // Base + Reserve
+                
+                // Available = Total - (Base + Reserve)
+                availableProfits = Math.max(0, parseFloat(totalCollateralFormatted) - totalRequired);
             } else {
                 availableProfits = parseFloat(totalCollateralFormatted);
             }
+            
+            console.log('Profit calculation:', {
+                totalSupply: totalSupplyFormatted + ' HP',
+                totalCollateral: totalCollateralFormatted + ' USDT',
+                baseCollateral: (parseFloat(totalSupplyFormatted) * 11).toFixed(6) + ' USDT',
+                reserveRatio: reserveRatio + '%',
+                requiredReserve: ((parseFloat(totalSupplyFormatted) * 11) * (parseFloat(reserveRatio) / 100)).toFixed(6) + ' USDT',
+                totalRequired: ((parseFloat(totalSupplyFormatted) * 11) * (1 + parseFloat(reserveRatio) / 100)).toFixed(6) + ' USDT',
+                availableProfits: availableProfits.toFixed(6) + ' USDT'
+            });
 
             // Update UI
             document.getElementById('availableProfits').textContent = `${availableProfits.toFixed(6)} USDT`;
@@ -175,10 +193,14 @@ class OwnerManagement {
 
             let availableProfits = 0;
             if (parseFloat(totalSupplyFormatted) > 0) {
-                const hpPriceUSDT = 10.5;
-                const baseCollateralNeeded = parseFloat(totalSupplyFormatted) * hpPriceUSDT;
-                const minRequiredCollateral = (baseCollateralNeeded * parseFloat(reserveRatio)) / 100;
-                availableProfits = Math.max(0, parseFloat(totalCollateralFormatted) - minRequiredCollateral);
+                const HP_TO_USDT_RATE = 11; // Base collateral per HP
+                const baseCollateral = parseFloat(totalSupplyFormatted) * HP_TO_USDT_RATE;
+                const reservePercentage = parseFloat(reserveRatio) / 100; // Convert to decimal
+                const requiredReserve = baseCollateral * reservePercentage; // 5% reserve
+                const totalRequired = baseCollateral + requiredReserve; // Base + Reserve
+                
+                // Available = Total - (Base + Reserve)
+                availableProfits = Math.max(0, parseFloat(totalCollateralFormatted) - totalRequired);
             } else {
                 availableProfits = parseFloat(totalCollateralFormatted);
             }
@@ -600,6 +622,61 @@ class OwnerManagement {
         } catch (error) {
             console.error('Pause error:', error);
             this.showNotification(`Failed to pause contract: ${error.message}`, 'error');
+        }
+    }
+    
+    /**
+     * Lower reserve ratio to free up collateral for withdrawal
+     */
+    async lowerReserveRatio() {
+        if (!window.blockchainInterface || !window.blockchainInterface.isConnected) {
+            this.showNotification('Please connect wallet first', 'error');
+            return;
+        }
+
+        try {
+            // Get current reserve ratio
+            const info = await window.blockchainInterface.contract.methods.getContractInfo().call();
+            const currentRatio = parseInt(info.currentReserveRatio);
+            
+            this.showNotification(`Current reserve ratio: ${currentRatio}%`, 'info');
+            
+            // Ask user for new ratio
+            const newRatio = prompt(`Enter new reserve ratio (100-200). Current: ${currentRatio}%\nLower it to 100-105% to free up excess collateral:`, '105');
+            
+            if (!newRatio) return; // User cancelled
+            
+            const newRatioNum = parseInt(newRatio);
+            if (isNaN(newRatioNum) || newRatioNum < 100 || newRatioNum > 200) {
+                this.showNotification('Invalid ratio. Must be between 100 and 200', 'error');
+                return;
+            }
+            
+            if (newRatioNum >= currentRatio) {
+                this.showNotification('New ratio must be lower than current ratio to free up funds', 'warning');
+                return;
+            }
+            
+            this.showNotification(`Setting reserve ratio to ${newRatioNum}%...`, 'info');
+            
+            const result = await window.blockchainInterface.contract.methods.updateReserveRatio(newRatioNum).send({
+                from: window.blockchainInterface.account,
+                gasPrice: window.blockchainInterface.web3.utils.toWei('5', 'gwei')
+            });
+            
+            this.showNotification(`✅ Reserve ratio updated to ${newRatioNum}%! TX: ${result.transactionHash}`, 'success');
+            
+            // Refresh data after 2 seconds
+            setTimeout(() => this.loadOwnerData(), 2000);
+            
+        } catch (error) {
+            console.error('Update reserve ratio error:', error);
+            
+            if (error.message.includes('User denied')) {
+                this.showNotification('Transaction cancelled by user', 'warning');
+            } else {
+                this.showNotification(`Failed to update reserve ratio: ${error.message}`, 'error');
+            }
         }
     }
     
