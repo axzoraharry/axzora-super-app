@@ -19,6 +19,18 @@ class HomeAssistantApp {
         this.updateUI();
     }
     
+    updateUI() {
+        // Initial UI updates when app loads
+        console.log('HomeAssistantApp: Updating initial UI state');
+        
+        // Update security status if elements exist
+        try {
+            this.updateSecurityStatus();
+        } catch (error) {
+            console.warn('Security status update failed:', error);
+        }
+    }
+    
     bindEvents() {
         // Permission buttons
         document.addEventListener('click', (e) => {
@@ -176,7 +188,16 @@ class HomeAssistantApp {
     
     updatePermissionUI(permissionId, granted) {
         const permissionItem = document.getElementById(permissionId);
+        if (!permissionItem) {
+            console.warn(`Permission item not found: ${permissionId}`);
+            return;
+        }
+        
         const btn = permissionItem.querySelector('.permission-btn');
+        if (!btn) {
+            console.warn(`Permission button not found for: ${permissionId}`);
+            return;
+        }
         
         if (granted) {
             permissionItem.classList.add('granted');
@@ -189,6 +210,11 @@ class HomeAssistantApp {
     checkAllPermissions() {
         const allGranted = Object.values(this.permissions).every(p => p);
         const continueBtn = document.getElementById('continueBtn');
+        
+        if (!continueBtn) {
+            console.warn('Continue button not found');
+            return;
+        }
         
         if (allGranted) {
             continueBtn.disabled = false;
@@ -267,15 +293,32 @@ class HomeAssistantApp {
     
     updateSecurityStatus() {
         // Update header status dots
-        document.getElementById('walletStatus').classList.toggle('active', this.walletConnected);
-        document.getElementById('securityStatus').classList.add('active'); // Always secure with permissions
+        const walletStatus = document.getElementById('walletStatus');
+        const securityStatus = document.getElementById('securityStatus');
+        
+        if (walletStatus) {
+            walletStatus.classList.toggle('active', this.walletConnected);
+        }
+        if (securityStatus) {
+            securityStatus.classList.add('active'); // Always secure with permissions
+        }
         
         // Update sidebar security status
-        document.getElementById('locationStatus').textContent = 
-            this.permissions.location ? 'Location: Enabled' : 'Location: Disabled';
-        document.getElementById('biometricStatus').textContent = 
-            this.permissions.fingerprint ? 'Biometric: Active' : 'Biometric: Inactive';
-        document.getElementById('encryptionStatus').textContent = 'Encryption: Strong';
+        const locationStatus = document.getElementById('locationStatus');
+        const biometricStatus = document.getElementById('biometricStatus');
+        const encryptionStatus = document.getElementById('encryptionStatus');
+        
+        if (locationStatus) {
+            locationStatus.textContent = 
+                this.permissions.location ? 'Location: Enabled' : 'Location: Disabled';
+        }
+        if (biometricStatus) {
+            biometricStatus.textContent = 
+                this.permissions.fingerprint ? 'Biometric: Active' : 'Biometric: Inactive';
+        }
+        if (encryptionStatus) {
+            encryptionStatus.textContent = 'Encryption: Strong';
+        }
     }
     
     async initializeWeb3() {
