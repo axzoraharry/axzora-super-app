@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BSC RPC Diagnostic Tool</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.4/dist/web3.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #666;
+        }
+        .success { background: #0d4d1c; border-color: #28a745; }
+        .error { background: #4d0d0d; border-color: #dc3545; }
+        .warning { background: #4d3d0d; border-color: #ffc107; }
+        .info { background: #0d2d4d; border-color: #17a2b8; }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        .test-button:hover { background: #0056b3; }
+        .test-button:disabled { background: #666; cursor: not-allowed; }
+        pre { background: #333; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 BSC RPC Diagnostic Tool</h1>
+    <p>This tool will help diagnose connectivity issues with BSC RPC endpoints.</p>
+    
+    <div>
+        <button class="test-button" onclick="runBasicTests()">🧪 Run Basic Tests</button>
+        <button class="test-button" onclick="testMetaMaskConnection()">🦊 Test MetaMask</button>
+        <button class="test-button" onclick="testContractAccess()">📋 Test Contract Access</button>
+        <button class="test-button" onclick="clearResults()">🧹 Clear Results</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        const resultsDiv = document.getElementById('results');
+        
+        const rpcEndpoints = [
+            'https://bsc-dataseed1.binance.org/',
+            'https://bsc-dataseed2.binance.org/',
+            'https://bsc-dataseed3.binance.org/',
+            'https://bsc-dataseed4.binance.org/',
+            'https://bsc-dataseed1.defibit.io/',
+            'https://bsc-dataseed2.defibit.io/',
+            'https://rpc.ankr.com/bsc'
+        ];
+        
+        const HP_CONTRACT_ADDRESS = '0xf99ae6F3234b5E7f247BD12A8a59668Aa479E560';
+        const USDT_CONTRACT_ADDRESS = '0x55d398326f99059fF775485246999027B3197955';
+        
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `
+                <strong>${new Date().toLocaleTimeString()}</strong><br>
+                ${message}
+            `;
+            resultsDiv.appendChild(div);
+            div.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function clearResults() {
+            resultsDiv.innerHTML = '';
+        }
+        
+        async function runBasicTests() {
+            addResult('🚀 Starting basic connectivity tests...', 'info');
+            
+            // Test 1: Browser capability
+            addResult(`🌐 Browser: ${navigator.userAgent}`, 'info');
+            addResult(`📶 Online Status: ${navigator.onLine ? '✅ Online' : '❌ Offline'}`, navigator.onLine ? 'success' : 'error');
+            
+            if (navigator.connection) {
+                addResult(`🔗 Connection Type: ${navigator.connection.effectiveType || 'Unknown'}`, 'info');
+            }
+            
+            // Test 2: Web3 availability
+            if (typeof Web3 === 'undefined') {
+                addResult('❌ Web3 library not loaded', 'error');
+                return;
+            } else {
+                addResult('✅ Web3 library loaded successfully', 'success');
+            }
+            
+            // Test 3: MetaMask availability
+            if (typeof window.ethereum === 'undefined') {
+                addResult('⚠️ MetaMask not detected - some tests will be limited', 'warning');
+            } else {
+                addResult('✅ MetaMask detected', 'success');
+            }
+            
+            // Test 4: RPC Endpoints
+            addResult('🔍 Testing RPC endpoints...', 'info');
+            
+            for (const endpoint of rpcEndpoints) {
+                try {
+                    addResult(`🔄 Testing ${endpoint}...`, 'info');
+                    const web3 = new Web3(endpoint);
+                    
+                    const startTime = Date.now();
+                    const blockNumber = await web3.eth.getBlockNumber();
+                    const responseTime = Date.now() - startTime;
+                    
+                    addResult(`✅ ${endpoint} - Block: ${blockNumber} (${responseTime}ms)`, 'success');
+                } catch (error) {
+                    addResult(`❌ ${endpoint} - Error: ${error.message}`, 'error');
+                }
+            }
+            
+            addResult('✅ Basic tests completed', 'success');
+        }
+        
+        async function testMetaMaskConnection() {
+            if (typeof window.ethereum === 'undefined') {
+                addResult('❌ MetaMask not available', 'error');
+                return;
+            }
+            
+            addResult('🦊 Testing MetaMask connection...', 'info');
+            
+            try {
+                // Test connection
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                if (accounts.length === 0) {
+                    addResult('❌ No accounts connected', 'error');
+                    return;
+                }
+                
+                addResult(`✅ Connected to account: ${accounts[0]}`, 'success');
+                
+                // Test chain ID
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                const networkId = parseInt(chainId, 16);
+                addResult(`🌐 Chain ID: ${chainId} (${networkId})`, networkId === 56 ? 'success' : 'warning');
+                
+                if (networkId !== 56) {
+                    addResult('⚠️ Not on BSC Mainnet (56). Switch networks for full functionality.', 'warning');
+                }
+                
+                // Test Web3 with MetaMask provider
+                const web3 = new Web3(window.ethereum);
+                const blockNumber = await web3.eth.getBlockNumber();
+                addResult(`✅ MetaMask RPC - Latest block: ${blockNumber}`, 'success');
+                
+                // Test balance
+                const balance = await web3.eth.getBalance(accounts[0]);
+                const balanceEth = web3.utils.fromWei(balance, 'ether');
+                addResult(`💰 BNB Balance: ${parseFloat(balanceEth).toFixed(4)} BNB`, 'info');
+                
+            } catch (error) {
+                addResult(`❌ MetaMask test failed: ${error.message}`, 'error');
+                console.error('MetaMask error:', error);
+            }
+        }
+        
+        async function testContractAccess() {
+            addResult('📋 Testing contract access...', 'info');
+            
+            let web3;
+            
+            // Use MetaMask if available, otherwise use public RPC
+            if (typeof window.ethereum !== 'undefined') {
+                web3 = new Web3(window.ethereum);
+                addResult('🔗 Using MetaMask provider', 'info');
+            } else {
+                web3 = new Web3('https://bsc-dataseed1.binance.org/');
+                addResult('🔗 Using public RPC', 'info');
+            }
+            
+            try {
+                // Test HP contract
+                addResult(`🔍 Testing HP contract: ${HP_CONTRACT_ADDRESS}`, 'info');
+                const hpCode = await web3.eth.getCode(HP_CONTRACT_ADDRESS);
+                if (hpCode === '0x') {
+                    addResult('❌ HP contract not found - no code at address', 'error');
+                } else {
+                    addResult(`✅ HP contract exists - ${hpCode.length} bytes of code`, 'success');
+                }
+                
+                // Test USDT contract
+                addResult(`🔍 Testing USDT contract: ${USDT_CONTRACT_ADDRESS}`, 'info');
+                const usdtCode = await web3.eth.getCode(USDT_CONTRACT_ADDRESS);
+                if (usdtCode === '0x') {
+                    addResult('❌ USDT contract not found - no code at address', 'error');
+                } else {
+                    addResult(`✅ USDT contract exists - ${usdtCode.length} bytes of code`, 'success');
+                }
+                
+                // Test contract calls (if contracts exist)
+                if (hpCode !== '0x') {
+                    try {
+                        const hpContract = new web3.eth.Contract([
+                            {"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"type":"function"}
+                        ], HP_CONTRACT_ADDRESS);
+                        
+                        const name = await hpContract.methods.name().call();
+                        addResult(`✅ HP Contract Name: ${name}`, 'success');
+                    } catch (callError) {
+                        addResult(`⚠️ Could not call HP contract name(): ${callError.message}`, 'warning');
+                    }
+                }
+                
+                if (usdtCode !== '0x') {
+                    try {
+                        const usdtContract = new web3.eth.Contract([
+                            {"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}
+                        ], USDT_CONTRACT_ADDRESS);
+                        
+                        const decimals = await usdtContract.methods.decimals().call();
+                        addResult(`✅ USDT Decimals: ${decimals}`, 'success');
+                    } catch (callError) {
+                        addResult(`⚠️ Could not call USDT contract decimals(): ${callError.message}`, 'warning');
+                    }
+                }
+                
+            } catch (error) {
+                addResult(`❌ Contract test failed: ${error.message}`, 'error');
+                console.error('Contract error:', error);
+            }
+        }
+        
+        // Auto-run basic tests on load
+        window.onload = function() {
+            addResult('🔧 BSC RPC Diagnostic Tool Ready', 'info');
+            addResult('Click "Run Basic Tests" to start diagnostics', 'info');
+        };
+    </script>
+</body>
+</html>

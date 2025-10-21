@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BSCScan API Debug Tool</title>
+    <style>
+        body { 
+            font-family: Arial; 
+            padding: 20px; 
+            background: #1a1a2e; 
+            color: white; 
+        }
+        .test-result { 
+            margin: 10px 0; 
+            padding: 15px; 
+            border-radius: 10px; 
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .success { background: rgba(0, 184, 148, 0.3); }
+        .error { background: rgba(255, 107, 107, 0.3); }
+        .info { background: rgba(0, 212, 255, 0.3); }
+        .warning { background: rgba(255, 193, 7, 0.3); }
+        button { 
+            padding: 15px 25px; 
+            margin: 10px 5px; 
+            background: #0095ff; 
+            color: white; 
+            border: none; 
+            border-radius: 10px; 
+            cursor: pointer; 
+        }
+        .code-block {
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 BSCScan API Debug Tool</h1>
+    <p>Let's diagnose your BSCScan API key issue step by step...</p>
+    
+    <button onclick="testBasicAPI()">🧪 Test Basic API</button>
+    <button onclick="testWithoutAPI()">🌐 Test Without API Key</button>
+    <button onclick="testDifferentEndpoint()">🔄 Test Different Endpoint</button>
+    <button onclick="manualAPICheck()">✋ Manual API Check</button>
+    
+    <div id="results"></div>
+
+    <script src="config.js"></script>
+    <script>
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong> - ${message}`;
+            document.getElementById('results').appendChild(div);
+        }
+
+        function logCode(code, description) {
+            const div = document.createElement('div');
+            div.innerHTML = `
+                <strong>${description}</strong>
+                <div class="code-block">${code}</div>
+            `;
+            document.getElementById('results').appendChild(div);
+        }
+
+        async function testBasicAPI() {
+            document.getElementById('results').innerHTML = '';
+            const apiKey = window.AXZORA_CONFIG.BSC_API_KEY;
+            
+            log('🔑 Testing BSCScan API with your key...', 'info');
+            log(`API Key: ${apiKey}`, 'info');
+            
+            const testUrl = `https://api.bscscan.com/api?module=stats&action=bnbprice&apikey=${apiKey}`;
+            log(`Testing URL: ${testUrl}`, 'info');
+            
+            try {
+                const response = await fetch(testUrl);
+                const data = await response.json();
+                
+                log(`HTTP Status: ${response.status}`, response.status === 200 ? 'success' : 'error');
+                
+                logCode(JSON.stringify(data, null, 2), 'API Response:');
+                
+                if (data.status === '1') {
+                    log('✅ API Key is working!', 'success');
+                } else {
+                    log(`❌ API Error: ${data.message || data.result}`, 'error');
+                    
+                    // Common error analysis
+                    if (data.message && data.message.includes('Invalid API Key')) {
+                        log('🔧 The API key appears to be invalid', 'error');
+                        log('💡 Double-check your API key at: https://bscscan.com/apis', 'warning');
+                    } else if (data.message && data.message.includes('rate limit')) {
+                        log('🚫 Rate limit exceeded - wait a few minutes', 'warning');
+                    } else {
+                        log('❓ Unknown API error - see response above', 'warning');
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Request failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testWithoutAPI() {
+            log('🌐 Testing BSCScan without API key (free tier)...', 'info');
+            
+            const testUrl = `https://api.bscscan.com/api?module=stats&action=bnbprice`;
+            log(`Testing URL: ${testUrl}`, 'info');
+            
+            try {
+                const response = await fetch(testUrl);
+                const data = await response.json();
+                
+                logCode(JSON.stringify(data, null, 2), 'Free API Response:');
+                
+                if (data.status === '1') {
+                    log('✅ Free API is working', 'success');
+                    log('This means BSCScan is accessible, issue is with your API key', 'warning');
+                } else {
+                    log('❌ Even free API is not working', 'error');
+                    log('This might be a network or BSCScan service issue', 'warning');
+                }
+                
+            } catch (error) {
+                log(`❌ Free API test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDifferentEndpoint() {
+            log('🔄 Testing different BSCScan endpoint...', 'info');
+            
+            const apiKey = window.AXZORA_CONFIG.BSC_API_KEY;
+            const testUrl = `https://api.bscscan.com/api?module=stats&action=tokensupply&contractaddress=0x55d398326f99059fF775485246999027B3197955&apikey=${apiKey}`;
+            
+            log(`Testing USDT supply endpoint...`, 'info');
+            
+            try {
+                const response = await fetch(testUrl);
+                const data = await response.json();
+                
+                logCode(JSON.stringify(data, null, 2), 'USDT Supply Response:');
+                
+                if (data.status === '1') {
+                    log('✅ Different endpoint works with your API key!', 'success');
+                    log('Issue might be with the BNB price endpoint specifically', 'warning');
+                } else {
+                    log(`❌ Same error on different endpoint: ${data.message}`, 'error');
+                    log('This confirms the API key issue', 'warning');
+                }
+                
+            } catch (error) {
+                log(`❌ Different endpoint test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function manualAPICheck() {
+            const apiKey = window.AXZORA_CONFIG.BSC_API_KEY;
+            
+            log('✋ Manual API Key Check Instructions:', 'info');
+            
+            const instructions = `
+1. Go to: https://bscscan.com/apis
+2. Sign in to your account
+3. Check if your API key is still active
+4. Make sure it's not rate-limited or suspended
+5. Try generating a new API key if needed
+
+Your current API key: ${apiKey}
+
+Test URL you can try in browser:
+https://api.bscscan.com/api?module=stats&action=bnbprice&apikey=${apiKey}
+
+If it shows {"status":"1","message":"OK","result":...} then it works!
+If it shows {"status":"0","message":"NOTOK","result":...} then there's an issue.
+            `;
+            
+            logCode(instructions, 'Manual Check Steps:');
+            
+            log('🔗 Click the test URL above to check directly in browser', 'info');
+            log('If browser test works but app doesn\'t, it might be a CORS issue', 'warning');
+        }
+
+        // Auto-run basic test
+        window.addEventListener('load', () => {
+            setTimeout(testBasicAPI, 500);
+        });
+    </script>
+</body>
+</html>

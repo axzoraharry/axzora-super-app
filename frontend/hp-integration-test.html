@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HP Integration Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: #0a0a0a; 
+            color: #fff; 
+        }
+        
+        .test-container {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }
+        
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        
+        .success { background: #0f5132; color: #d1e7dd; }
+        .error { background: #842029; color: #f8d7da; }
+        .info { background: #055160; color: #cff4fc; }
+        
+        button {
+            background: #00ffff;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .mock-elements {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        #hpBalance, #hpValue, #stakeAvailableAmount {
+            background: #333;
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin: 5px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 HP Token Integration Test</h1>
+    
+    <div class="test-container">
+        <h2>1. Script Loading Test</h2>
+        <div id="scriptTest" class="test-result info">Testing script availability...</div>
+    </div>
+    
+    <div class="test-container">
+        <h2>2. HP Price Display Test</h2>
+        <div id="priceTest" class="test-result info">Testing HP price display module...</div>
+        <div class="mock-elements">
+            <h4>Mock Balance Elements:</h4>
+            <div id="hpBalance">0.00</div>
+            <div id="hpValue">$0.00</div>
+            <div class="hp-balance-display">Mock HP Display</div>
+        </div>
+        <button onclick="testPriceDisplay()">Test Price Updates</button>
+    </div>
+    
+    <div class="test-container">
+        <h2>3. Staking Interface Test</h2>
+        <div id="stakingTest" class="test-result info">Testing staking interface wallet checks...</div>
+        <div class="mock-elements">
+            <h4>Mock Staking Elements:</h4>
+            <div id="stakeAvailableAmount">Loading...</div>
+            <div id="sidebarStakeAmount">Loading...</div>
+            <div id="totalStakedHP">0.00 HP</div>
+            <div id="totalStakedUSD">($0.00)</div>
+        </div>
+        <button onclick="testWalletConnection()">Test Wallet Connection</button>
+        <button onclick="testStakingUpdates()">Test Staking Updates</button>
+    </div>
+    
+    <div class="test-container">
+        <h2>4. Integration Test</h2>
+        <div id="integrationTest" class="test-result info">Testing full integration...</div>
+        <button onclick="runFullTest()">Run Complete Test</button>
+    </div>
+
+    <!-- Load the scripts in correct order -->
+    <script src="config.js"></script>
+    <script src="js/console-fixes.js"></script>
+    
+    <!-- Mock blockchain interface for testing -->
+    <script>
+        // Mock blockchain interface
+        window.blockchainInterface = {
+            isWalletConnected: function() {
+                return window.mockWalletConnected || false;
+            },
+            getTransactionData: function() {
+                return {
+                    hpBalance: '50.25',
+                    usdtBalance: '100.50',
+                    bnbBalance: '0.25'
+                };
+            },
+            account: window.mockWalletConnected ? '0x1234567890123456789012345678901234567890' : null
+        };
+        
+        // Mock wallet connection state
+        window.mockWalletConnected = false;
+        
+        function toggleMockWallet() {
+            window.mockWalletConnected = !window.mockWalletConnected;
+            window.blockchainInterface.account = window.mockWalletConnected ? '0x1234567890123456789012345678901234567890' : null;
+            
+            // Dispatch wallet events
+            if (window.mockWalletConnected) {
+                window.dispatchEvent(new Event('wallet-connected'));
+            } else {
+                window.dispatchEvent(new Event('wallet-disconnected'));
+            }
+            
+            return window.mockWalletConnected;
+        }
+    </script>
+    
+    <!-- Load our modules -->
+    <script src="js/hp-price-display.js"></script>
+    <script src="js/staking-interface.js"></script>
+
+    <script>
+        // Test functions
+        function updateTestResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `test-result ${type}`;
+        }
+
+        function testScriptLoading() {
+            let results = [];
+            
+            // Test HP Price Display
+            if (window.hpPriceDisplay) {
+                results.push('✅ HP Price Display module loaded');
+                if (typeof window.hpPriceDisplay.getHPPrice === 'function') {
+                    results.push('✅ HP Price Display methods available');
+                } else {
+                    results.push('❌ HP Price Display methods missing');
+                }
+            } else {
+                results.push('❌ HP Price Display module not found');
+            }
+            
+            // Test Staking Interface
+            if (window.hpStaking) {
+                results.push('✅ HP Staking module loaded');
+                if (typeof window.hpStaking.isWalletConnected === 'function') {
+                    results.push('✅ Staking wallet connection methods available');
+                } else {
+                    results.push('❌ Staking wallet connection methods missing');
+                }
+            } else {
+                results.push('❌ HP Staking module not found');
+            }
+            
+            const allPassed = !results.some(r => r.includes('❌'));
+            updateTestResult('scriptTest', results.join(' | '), allPassed ? 'success' : 'error');
+            
+            return allPassed;
+        }
+
+        function testPriceDisplay() {
+            if (!window.hpPriceDisplay) {
+                updateTestResult('priceTest', '❌ HP Price Display not available', 'error');
+                return false;
+            }
+            
+            try {
+                // Test price retrieval
+                const priceInfo = window.hpPriceDisplay.getHPPrice();
+                console.log('Price info:', priceInfo);
+                
+                // Test formatting
+                const formatted = window.hpPriceDisplay.formatHPValue(10.5, true);
+                console.log('Formatted value:', formatted);
+                
+                // Test display updates
+                window.hpPriceDisplay.updateAllHPDisplays();
+                
+                updateTestResult('priceTest', 
+                    `✅ HP Price: $${priceInfo.usd} | INR: ₹${priceInfo.inr} | Formatted: ${formatted}`, 
+                    'success'
+                );
+                
+                return true;
+            } catch (error) {
+                updateTestResult('priceTest', `❌ Price display test failed: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        function testWalletConnection() {
+            if (!window.hpStaking) {
+                updateTestResult('stakingTest', '❌ HP Staking not available', 'error');
+                return false;
+            }
+            
+            try {
+                // Test with wallet disconnected
+                const disconnectedStatus = window.hpStaking.isWalletConnected();
+                
+                // Toggle mock wallet
+                const connected = toggleMockWallet();
+                
+                // Test with wallet connected
+                setTimeout(() => {
+                    const connectedStatus = window.hpStaking.isWalletConnected();
+                    
+                    updateTestResult('stakingTest', 
+                        `✅ Wallet Tests - Disconnected: ${!disconnectedStatus} | Connected: ${connectedStatus} | Mock State: ${connected}`, 
+                        (connectedStatus === connected) ? 'success' : 'error'
+                    );
+                }, 100);
+                
+                return true;
+            } catch (error) {
+                updateTestResult('stakingTest', `❌ Wallet connection test failed: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        function testStakingUpdates() {
+            if (!window.hpStaking) {
+                updateTestResult('stakingTest', '❌ HP Staking not available', 'error');
+                return false;
+            }
+            
+            try {
+                // Ensure wallet is connected for this test
+                if (!window.mockWalletConnected) {
+                    toggleMockWallet();
+                }
+                
+                // Test staking amount updates
+                window.hpStaking.updateAvailableStakingAmounts();
+                
+                // Test price integration
+                const hpPrice = window.hpStaking.getHPPriceUSD();
+                
+                // Test button updates
+                window.hpStaking.updateStakingButtons();
+                
+                setTimeout(() => {
+                    const stakeAmountElement = document.getElementById('stakeAvailableAmount');
+                    const currentText = stakeAmountElement ? stakeAmountElement.textContent : 'Not found';
+                    
+                    updateTestResult('stakingTest', 
+                        `✅ Staking Updates - Price: $${hpPrice} | Button Text: "${currentText}"`, 
+                        'success'
+                    );
+                }, 500);
+                
+                return true;
+            } catch (error) {
+                updateTestResult('stakingTest', `❌ Staking updates test failed: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        function runFullTest() {
+            updateTestResult('integrationTest', '🔄 Running full integration test...', 'info');
+            
+            setTimeout(() => {
+                const scriptTest = testScriptLoading();
+                
+                setTimeout(() => {
+                    const priceTest = testPriceDisplay();
+                    
+                    setTimeout(() => {
+                        const walletTest = testWalletConnection();
+                        
+                        setTimeout(() => {
+                            testStakingUpdates();
+                            
+                            const allPassed = scriptTest && priceTest && walletTest;
+                            updateTestResult('integrationTest', 
+                                allPassed ? 
+                                '🎉 All tests passed! Integration is working correctly.' : 
+                                '⚠️ Some tests failed. Check individual test results above.', 
+                                allPassed ? 'success' : 'error'
+                            );
+                        }, 500);
+                    }, 500);
+                }, 500);
+            }, 200);
+        }
+
+        // Auto-run tests when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🧪 Starting integration tests...');
+            
+            setTimeout(() => {
+                testScriptLoading();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

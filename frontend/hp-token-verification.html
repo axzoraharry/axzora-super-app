@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HP Token Verification & Price Fix</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .success { border-left: 4px solid #4caf50; }
+        .warning { border-left: 4px solid #ff9800; }
+        .info { border-left: 4px solid #2196f3; }
+        .address { 
+            background: #f0f8ff; 
+            padding: 10px; 
+            border-radius: 5px; 
+            font-family: monospace; 
+            word-break: break-all;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover { background: #5a67d8; }
+        .step { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 5px; }
+        .success-check { color: green; font-weight: bold; }
+        .error-check { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🏦 HP Token Verification & Price Fix</h1>
+    
+    <div class="card success">
+        <h3>✅ Great News!</h3>
+        <p>Your HP token minting worked correctly! You have <strong>1 HP token</strong> showing in MetaMask, which means our fix was successful!</p>
+        <p><strong>Before the fix:</strong> You would have seen 11 HP tokens<br>
+        <strong>After the fix:</strong> You correctly see 1 HP token</p>
+    </div>
+
+    <div class="card warning">
+        <h3>⚠️ Issues to Address</h3>
+        <ol>
+            <li><strong>HP Price Display:</strong> "No conversion rate available" - We'll fix this</li>
+            <li><strong>Transaction Verification:</strong> Let's check if USDT was actually deducted</li>
+        </ol>
+    </div>
+
+    <div class="card info">
+        <h3>🔍 Step 1: Check Your Transaction</h3>
+        <p>Let's verify your HP minting transaction on BSCScan:</p>
+        <div class="address">Your Wallet: 0x76318736c7A00Ab3d7B62285942cdFF1899d7638</div>
+        <button onclick="checkWallet()">🔍 Check Wallet on BSCScan</button>
+        <button onclick="checkHPContract()">📋 Check HP Contract</button>
+        
+        <div class="step">
+            <strong>What to look for:</strong>
+            <ul>
+                <li>Recent "TokensMinted" transaction</li>
+                <li>USDT transfer of ~11.55 USDT</li>
+                <li>HP token balance showing 1.00 HP</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card info">
+        <h3>💰 Step 2: Fix HP Token Price in MetaMask</h3>
+        <p>To show the correct HP token value ($11.00 per HP), we need to add price data to MetaMask:</p>
+        
+        <div class="step">
+            <strong>Method 1: Re-add HP Token with Correct Info</strong>
+            <ol>
+                <li>In MetaMask, click on the HP token</li>
+                <li>Click "Remove" or hide the token</li>
+                <li>Click "Import tokens"</li>
+                <li>Use these details:</li>
+            </ol>
+            <div class="address">
+                <strong>Token Contract:</strong> 0xf99ae6F3234b5E7f247BD12A8a59668Aa479E560<br>
+                <strong>Token Symbol:</strong> HP<br>
+                <strong>Token Decimals:</strong> 18
+            </div>
+            <button onclick="copyContract()">📋 Copy Contract Address</button>
+        </div>
+
+        <div class="step">
+            <strong>Method 2: Add to CoinGecko/CoinMarketCap (Long-term)</strong>
+            <p>For automatic price feeds, the token needs to be listed on price tracking sites. This requires:</p>
+            <ul>
+                <li>Significant trading volume</li>
+                <li>Liquidity pools on DEXs</li>
+                <li>Community adoption</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card info">
+        <h3>🧮 Step 3: Manual Price Calculation</h3>
+        <p>Since HP = $11.00 USD per token, here's your portfolio value:</p>
+        <div id="portfolio-calc">
+            <div class="step">
+                <strong>Your HP Holdings:</strong><br>
+                • 1 HP token × $11.00 = <strong>$11.00 USD</strong><br>
+                • In INR: $11.00 × ₹83 = <strong>₹913 INR</strong>
+            </div>
+        </div>
+        <button onclick="updateCalculation()">🔄 Update Calculation</button>
+    </div>
+
+    <div class="card success">
+        <h3>🎯 Verification Checklist</h3>
+        <div id="checklist">
+            <div class="step">
+                <input type="checkbox" id="check1"> <label for="check1">✅ HP token shows 1.00 HP (not 11 HP)</label><br>
+                <input type="checkbox" id="check2"> <label for="check2">🔍 Transaction visible on BSCScan</label><br>
+                <input type="checkbox" id="check3"> <label for="check3">💵 USDT balance decreased by ~11.55 USDT</label><br>
+                <input type="checkbox" id="check4"> <label for="check4">🏦 HP token properly imported in MetaMask</label><br>
+                <input type="checkbox" id="check5"> <label for="check5">🎯 Can calculate correct USD value manually</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="card warning">
+        <h3>🔄 If USDT Wasn't Deducted</h3>
+        <p>If your USDT balance is still the same, it might mean:</p>
+        <ol>
+            <li><strong>Transaction Failed:</strong> Check MetaMask activity for failed transactions</li>
+            <li><strong>Approval Only:</strong> Only the USDT approval went through, not the mint</li>
+            <li><strong>Different USDT Source:</strong> USDT came from a different pool/source</li>
+        </ol>
+        <button onclick="debugTransaction()">🔧 Debug Transaction</button>
+    </div>
+
+    <script>
+        function checkWallet() {
+            window.open('https://bscscan.com/address/0x76318736c7A00Ab3d7B62285942cdFF1899d7638', '_blank');
+        }
+
+        function checkHPContract() {
+            window.open('https://bscscan.com/token/0xf99ae6F3234b5E7f247BD12A8a59668Aa479E560', '_blank');
+        }
+
+        function copyContract() {
+            navigator.clipboard.writeText('0xf99ae6F3234b5E7f247BD12A8a59668Aa479E560').then(() => {
+                alert('HP Contract address copied to clipboard!');
+            });
+        }
+
+        function updateCalculation() {
+            const hpAmount = prompt('Enter your HP token amount:', '1');
+            if (hpAmount) {
+                const usdValue = parseFloat(hpAmount) * 11.00;
+                const inrValue = usdValue * 83;
+                document.getElementById('portfolio-calc').innerHTML = `
+                    <div class="step">
+                        <strong>Your HP Holdings:</strong><br>
+                        • ${hpAmount} HP tokens × $11.00 = <strong>$${usdValue.toFixed(2)} USD</strong><br>
+                        • In INR: $${usdValue.toFixed(2)} × ₹83 = <strong>₹${inrValue.toFixed(0)} INR</strong>
+                    </div>
+                `;
+            }
+        }
+
+        function debugTransaction() {
+            alert('Check MetaMask Activity tab for:\n1. Recent HP token transactions\n2. Failed transactions\n3. USDT approval transactions\n\nThen check BSCScan for complete transaction history.');
+        }
+
+        // Auto-check the first item since we can see HP token is working
+        document.getElementById('check1').checked = true;
+    </script>
+</body>
+</html>

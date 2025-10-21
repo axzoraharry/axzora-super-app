@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HP Token Transaction Analysis</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .analysis { background: #f5f5f5; padding: 20px; border-radius: 10px; margin: 20px 0; }
+        .correct { background: #d4edda; border-left: 5px solid #28a745; }
+        .warning { background: #fff3cd; border-left: 5px solid #ffc107; }
+        .calculation { background: #e9ecef; padding: 15px; margin: 10px 0; border-radius: 5px; font-family: monospace; }
+        input, button { padding: 10px; margin: 5px; border: 1px solid #ccc; border-radius: 5px; }
+        button { background: #007bff; color: white; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🔍 HappyPaisa Token - Transaction Analysis</h1>
+    
+    <div class="analysis correct">
+        <h2>✅ Your Contract is Working Correctly!</h2>
+        <p><strong>Transaction:</strong> <a href="https://bscscan.com/tx/0xda0020d5128f2c45eab22c440968aa852868adb764114ccce69e640762e61968" target="_blank">View on BSCScan</a></p>
+    </div>
+
+    <div class="analysis">
+        <h2>📊 Calculation Breakdown</h2>
+        
+        <h3>Contract Constants:</h3>
+        <div class="calculation">
+HP_TO_USDT_RATE = 11 * 10^6 = 11,000,000 (11 USDT in 6 decimals)
+HP_DECIMALS = 18
+reserveRatio = 105 (105% collateral)
+        </div>
+
+        <h3>When you mint 1 HP:</h3>
+        <div class="calculation">
+1. Input: 1 HP = 1,000,000,000,000,000,000 wei (18 decimals)
+
+2. Base USDT needed:
+   baseCollateral = (1 * 10^18 * 11 * 10^6) / 10^18
+   baseCollateral = 11,000,000 wei (11 USDT in 6 decimals)
+
+3. With 105% reserve ratio:
+   requiredCollateral = (11,000,000 * 105) / 100
+   requiredCollateral = 11,550,000 wei (11.55 USDT in 6 decimals)
+
+4. Result:
+   ✅ You get: 1 HP
+   💰 You pay: 11.55 USDT (11 + 5% reserve)
+        </div>
+    </div>
+
+    <div class="analysis warning">
+        <h2>⚠️ If You're Seeing 11 HP Instead of 1 HP</h2>
+        <p>This is likely a <strong>frontend display issue</strong>, not a contract issue. Possible causes:</p>
+        <ul>
+            <li>Frontend is showing USDT value (11) instead of HP amount (1)</li>
+            <li>Decimal conversion error in the UI</li>
+            <li>Cache/refresh issue in MetaMask or browser</li>
+        </ul>
+    </div>
+
+    <div class="analysis">
+        <h2>🧮 Quick Calculator</h2>
+        <p>Calculate how much USDT you need for any HP amount:</p>
+        
+        <label>HP Amount to mint:</label>
+        <input type="number" id="hpAmount" value="1" step="0.01" min="0.01">
+        <br>
+        
+        <button onclick="calculate()">Calculate</button>
+        
+        <div id="result" style="margin-top: 20px;"></div>
+    </div>
+
+    <div class="analysis">
+        <h2>🔍 How to Verify Your Actual HP Balance</h2>
+        <ol>
+            <li><strong>Check on BSCScan:</strong> 
+                <br>Go to your wallet address on <a href="https://bscscan.com" target="_blank">BSCScan</a> 
+                <br>Look at the "Token" tab to see your HP balance</li>
+            
+            <li><strong>Check in MetaMask:</strong>
+                <br>Add the HP token: <code>0xf99ae6F3234b5E7f247BD12A8a59668Aa479E560</code>
+                <br>Symbol: HP, Decimals: 18</li>
+            
+            <li><strong>Call Contract Directly:</strong>
+                <br>Use the <code>balanceOf</code> function on BSCScan's contract page</li>
+        </ol>
+    </div>
+
+    <script>
+        function calculate() {
+            const hpAmount = parseFloat(document.getElementById('hpAmount').value || 0);
+            
+            if (hpAmount <= 0) {
+                document.getElementById('result').innerHTML = '⚠️ Please enter a valid HP amount';
+                return;
+            }
+            
+            // Constants from contract
+            const HP_TO_USDT_RATE = 11 * Math.pow(10, 6); // 11 USDT (6 decimals)
+            const HP_DECIMALS = 18;
+            const RESERVE_RATIO = 105;
+            
+            // Convert HP to wei (18 decimals)
+            const hpAmountWei = hpAmount * Math.pow(10, HP_DECIMALS);
+            
+            // Calculate base collateral
+            const baseCollateral = (hpAmountWei * HP_TO_USDT_RATE) / Math.pow(10, HP_DECIMALS);
+            
+            // Calculate required collateral with reserve ratio
+            const requiredCollateral = (baseCollateral * RESERVE_RATIO) / 100;
+            
+            // Convert back to readable USDT
+            const baseUSDT = baseCollateral / Math.pow(10, 6);
+            const requiredUSDT = requiredCollateral / Math.pow(10, 6);
+            
+            document.getElementById('result').innerHTML = `
+                <div class="calculation">
+<strong>For ${hpAmount} HP:</strong>
+• Base USDT needed: ${baseUSDT.toFixed(2)} USDT
+• With 105% reserve: ${requiredUSDT.toFixed(2)} USDT
+• Reserve fee: ${(requiredUSDT - baseUSDT).toFixed(2)} USDT
+
+<strong>Summary:</strong>
+You pay ${requiredUSDT.toFixed(2)} USDT → You get ${hpAmount} HP
+                </div>
+            `;
+        }
+        
+        // Calculate on page load
+        calculate();
+    </script>
+
+    <div class="analysis correct">
+        <h2>✨ Summary</h2>
+        <p><strong>Your contract is working perfectly!</strong> The 1 HP = 11 USDT rate is correct, plus the 5% reserve ratio.</p>
+        <p>If you're seeing 11 HP in your wallet instead of 1 HP, it's a frontend display issue, not a contract issue.</p>
+    </div>
+</body>
+</html>

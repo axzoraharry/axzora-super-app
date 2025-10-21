@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HP Token Minting Logic Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .test-case {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .correct { color: green; font-weight: bold; }
+        .incorrect { color: red; font-weight: bold; }
+        .calculation {
+            background: #f0f8ff;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+        }
+        .flow {
+            background: #fff8e1;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #ff9800;
+        }
+        .success {
+            background: #e8f5e8;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #4caf50;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏦 HP Token Minting Logic Test</h1>
+    <p>Testing the corrected minting logic to ensure proper HP token amounts.</p>
+
+    <div class="test-case">
+        <h3>📋 Contract Method Analysis</h3>
+        <div class="calculation">
+Contract Method: mintTokens(uint256 hpAmount)
+- Parameter: hpAmount in wei (18 decimals)
+- Logic: Calculates USDT required = hpAmount * 11.55 USDT per HP
+- Mints: Exactly hpAmount HP tokens to user
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h3>🧮 Test Case 1: Mint 1 HP Token</h3>
+        <div class="flow">
+            <strong>User Request:</strong> "I want to mint 1 HP token"<br>
+            <strong>Frontend Should:</strong>
+            <ol>
+                <li>Calculate HP amount in wei: 1 HP = 1 × 10^18 wei</li>
+                <li>Call contract.mintTokens(1000000000000000000) // 1 HP in wei</li>
+                <li>Contract calculates USDT needed: 1 HP × 11.55 = 11.55 USDT</li>
+                <li>Contract transfers 11.55 USDT from user</li>
+                <li>Contract mints 1 HP token to user</li>
+            </ol>
+        </div>
+        <div class="calculation" id="test1-calc"></div>
+        <div id="test1-result" class="success"></div>
+    </div>
+
+    <div class="test-case">
+        <h3>🧮 Test Case 2: Mint 5 HP Tokens</h3>
+        <div class="flow">
+            <strong>User Request:</strong> "I want to mint 5 HP tokens"<br>
+            <strong>Frontend Should:</strong>
+            <ol>
+                <li>Calculate HP amount in wei: 5 HP = 5 × 10^18 wei</li>
+                <li>Call contract.mintTokens(5000000000000000000) // 5 HP in wei</li>
+                <li>Contract calculates USDT needed: 5 HP × 11.55 = 57.75 USDT</li>
+                <li>Contract transfers 57.75 USDT from user</li>
+                <li>Contract mints 5 HP tokens to user</li>
+            </ol>
+        </div>
+        <div class="calculation" id="test2-calc"></div>
+        <div id="test2-result" class="success"></div>
+    </div>
+
+    <div class="test-case">
+        <h3>⚠️ Common Mistake (Previous Bug)</h3>
+        <div class="flow">
+            <strong>Wrong Approach:</strong> Pass USDT amount to mintTokens()<br>
+            <strong>Problem:</strong> Contract expects HP amount, not USDT amount<br>
+            <strong>Result:</strong> If you pass 11.55 (USDT) as the parameter, contract thinks you want to mint 11.55 HP tokens!<br>
+            <strong>Calculation:</strong> 11.55 HP × 11.55 USDT/HP = 133.40 USDT required (wrong!)
+        </div>
+        <div class="calculation incorrect">
+❌ WRONG: contract.mintTokens(11.55) // This means mint 11.55 HP, not use 11.55 USDT!
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h3>✅ Corrected Frontend Logic</h3>
+        <div class="calculation correct" id="corrected-logic"></div>
+    </div>
+
+    <script>
+        // Test Case 1: 1 HP Token
+        const hpDesired1 = 1;
+        const hpAmountWei1 = (hpDesired1 * Math.pow(10, 18)).toExponential();
+        const usdtRequired1 = hpDesired1 * 11.55;
+        
+        document.getElementById('test1-calc').innerHTML = `
+HP Amount: ${hpDesired1} HP
+HP in Wei: ${hpAmountWei1} wei
+USDT Required by Contract: ${usdtRequired1} USDT
+Contract Call: mintTokens("${hpAmountWei1}")
+        `;
+        
+        document.getElementById('test1-result').innerHTML = `
+✅ Result: User pays ${usdtRequired1} USDT and receives ${hpDesired1} HP token(s)
+        `;
+
+        // Test Case 2: 5 HP Tokens
+        const hpDesired2 = 5;
+        const hpAmountWei2 = (hpDesired2 * Math.pow(10, 18)).toExponential();
+        const usdtRequired2 = hpDesired2 * 11.55;
+        
+        document.getElementById('test2-calc').innerHTML = `
+HP Amount: ${hpDesired2} HP
+HP in Wei: ${hpAmountWei2} wei
+USDT Required by Contract: ${usdtRequired2} USDT
+Contract Call: mintTokens("${hpAmountWei2}")
+        `;
+        
+        document.getElementById('test2-result').innerHTML = `
+✅ Result: User pays ${usdtRequired2} USDT and receives ${hpDesired2} HP token(s)
+        `;
+
+        // Corrected Logic
+        document.getElementById('corrected-logic').innerHTML = `
+// ✅ CORRECT FRONTEND LOGIC:
+async function mintHPTokens(desiredHPAmount) {
+    // Convert HP amount to wei (18 decimals)
+    const hpAmountWei = web3.utils.toWei(desiredHPAmount.toString(), 'ether');
+    
+    // Calculate USDT required for approval (11.55 USDT per HP)
+    const usdtRequired = desiredHPAmount * 11.55;
+    
+    // Approve USDT spending (6 decimals)
+    const usdtAmountForApproval = Math.floor(usdtRequired * Math.pow(10, 6));
+    await usdtContract.methods.approve(hpContractAddress, usdtAmountForApproval).send({from: account});
+    
+    // Call mint with HP amount in wei
+    await hpContract.methods.mintTokens(hpAmountWei).send({from: account});
+    
+    // Contract will automatically:
+    // 1. Calculate USDT needed: ${desiredHPAmount} HP × 11.55 = ${usdtRequired} USDT
+    // 2. Transfer USDT from user
+    // 3. Mint exactly ${desiredHPAmount} HP tokens to user
+}
+        `;
+    </script>
+</body>
+</html>

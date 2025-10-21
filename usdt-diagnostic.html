@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USDT Transfer Diagnostic</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 900px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .error { border-left: 4px solid #f44336; }
+        .warning { border-left: 4px solid #ff9800; }
+        .success { border-left: 4px solid #4caf50; }
+        .info { border-left: 4px solid #2196f3; }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover { background: #5a67d8; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .code { 
+            background: #f0f8ff; 
+            padding: 10px; 
+            border-radius: 5px; 
+            font-family: monospace; 
+            white-space: pre-wrap;
+            margin: 10px 0;
+        }
+        .log {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        .status {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.checking { background: #fff3cd; color: #856404; }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>🔍 USDT Transfer Diagnostic Tool</h1>
+    <p><strong>Issue:</strong> HP tokens are minted but USDT is not deducted from wallet</p>
+    
+    <div class="card error">
+        <h3>🚨 Critical Issue Detected</h3>
+        <p><strong>Problem:</strong> User minted 1 HP token but USDT balance remained unchanged</p>
+        <p><strong>Expected:</strong> USDT balance should decrease by ~11.55 USDT</p>
+        <p><strong>Actual:</strong> USDT balance stayed at 22 USDT</p>
+        <p><strong>Impact:</strong> User getting free HP tokens - this breaks the economic model!</p>
+    </div>
+
+    <div class="card info">
+        <h3>🔗 Connect & Diagnose</h3>
+        <button onclick="connectWallet()">Connect Wallet</button>
+        <button onclick="runFullDiagnostic()" disabled id="diagnosticBtn">Run Full Diagnostic</button>
+        <div class="status" id="connectionStatus">Not connected</div>
+    </div>
+
+    <div class="card">
+        <h3>📊 Current Balances</h3>
+        <div id="balances">
+            <div>USDT: <span id="usdtBalance">-</span></div>
+            <div>HP: <span id="hpBalance">-</span></div>
+            <div>USDT Allowance: <span id="usdtAllowance">-</span></div>
+        </div>
+        <button onclick="refreshBalances()" disabled id="refreshBtn">🔄 Refresh Balances</button>
+    </div>
+
+    <div class="card">
+        <h3>🧪 Contract Tests</h3>
+        <button onclick="testUSDTContract()" disabled id="testUsdtBtn">Test USDT Contract</button>
+        <button onclick="testHPContract()" disabled id="testHpBtn">Test HP Contract</button>
+        <button onclick="checkContractUSDT()" disabled id="checkContractBtn">Check HP Contract USDT</button>
+        <button onclick="simulateMinting()" disabled id="simulateBtn">🧮 Simulate Minting</button>
+    </div>
+
+    <div class="card">
+        <h3>🔥 Test Burning (Reverse Check)</h3>
+        <p>Test if burning HP tokens returns USDT to verify bidirectional flow:</p>
+        <button onclick="testBurn()" disabled id="burnBtn">🔥 Test Burn 0.1 HP</button>
+        <div class="status" id="burnStatus">Ready to test</div>
+    </div>
+
+    <div class="card">
+        <h3>📋 Diagnostic Log</h3>
+        <div class="log" id="diagnosticLog">Ready to run diagnostics...\n</div>
+    </div>
+
+    <script>
+        let web3, account, hpContract, usdtContract;
+        let isConnected = false;
+
+        // Contract configurations
+        const HP_CONTRACT = '0xf99ae6F3234b5E7f247BD12A8a59668Aa479E560';
+        const USDT_CONTRACT = '0x55d398326f99059fF775485246999027B3197955';
+        
+        const HP_ABI = [{"inputs":[{"internalType":"address","name":"_usdtAddress","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"allowance","type":"uint256"},{"internalType":"uint256","name":"needed","type":"uint256"}],"name":"ERC20InsufficientAllowance","type":"error"},{"inputs":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"uint256","name":"balance","type":"uint256"},{"internalType":"uint256","name":"needed","type":"uint256"}],"name":"ERC20InsufficientBalance","type":"error"},{"inputs":[{"internalType":"address","name":"approver","type":"address"}],"name":"ERC20InvalidApprover","type":"error"},{"inputs":[{"internalType":"address","name":"receiver","type":"address"}],"name":"ERC20InvalidReceiver","type":"error"},{"inputs":[{"internalType":"address","name":"sender","type":"address"}],"name":"ERC20InvalidSender","type":"error"},{"inputs":[{"internalType":"address","name":"spender","type":"address"}],"name":"ERC20InvalidSpender","type":"error"},{"inputs":[],"name":"EnforcedPause","type":"error"},{"inputs":[],"name":"ExpectedPause","type":"error"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"OwnableInvalidOwner","type":"error"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"OwnableUnauthorizedAccount","type":"error"},{"inputs":[],"name":"ReentrancyGuardReentrantCall","type":"error"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"spender","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"depositor","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"CollateralDeposited","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"withdrawer","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"CollateralWithdrawn","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previousOwner","type":"address"},{"indexed":true,"internalType":"address","name":"newOwner","type":"address"}],"name":"OwnershipTransferred","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"address","name":"account","type":"address"}],"name":"Paused","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"oldRatio","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newRatio","type":"uint256"}],"name":"ReserveRatioUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":false,"internalType":"uint256","name":"hpAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"usdtReturned","type":"uint256"}],"name":"TokensBurned","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"hpAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"usdtCollateral","type":"uint256"}],"name":"TokensMinted","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"address","name":"account","type":"address"}],"name":"Unpaused","type":"event"},{"inputs":[],"name":"HP_DECIMALS","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"HP_TO_USDT_RATE","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"USDT","outputs":[{"internalType":"contract IERC20","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"spender","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"hpAmount","type":"uint256"}],"name":"burnTokens","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"hpAmount","type":"uint256"}],"name":"calculateCollateralNeeded","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"hpAmount","type":"uint256"}],"name":"calculateUSDTReturn","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"depositCollateral","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"emergencyWithdraw","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"getContractInfo","outputs":[{"internalType":"uint256","name":"totalSupplyHP","type":"uint256"},{"internalType":"uint256","name":"totalCollateralUSDT","type":"uint256"},{"internalType":"uint256","name":"currentReserveRatio","type":"uint256"},{"internalType":"uint256","name":"currentCollateralizationRatio","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getCurrentCollateralizationRatio","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"hpAmount","type":"uint256"}],"name":"mintTokens","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pause","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"paused","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"renounceOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"reserveRatio","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalCollateral","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"transferFrom","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"unpause","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"newRatio","type":"uint256"}],"name":"updateReserveRatio","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"withdrawExcessCollateral","outputs":[],"stateMutability":"nonpayable","type":"function"}];
+        
+        const USDT_ABI = [{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},{"constant":false,"inputs":[{"name":"_spender","type":"address"},{"name":"_value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"},{"name":"_spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"type":"function"},{"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}];
+
+        function log(message) {
+            const logDiv = document.getElementById('diagnosticLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        async function connectWallet() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('MetaMask not found');
+                }
+
+                const statusDiv = document.getElementById('connectionStatus');
+                statusDiv.textContent = 'Connecting...';
+                statusDiv.className = 'status checking';
+
+                web3 = new Web3(window.ethereum);
+                const accounts = await window.ethereum.request({method: 'eth_requestAccounts'});
+                account = accounts[0];
+
+                // Initialize contracts
+                hpContract = new web3.eth.Contract(HP_ABI, HP_CONTRACT);
+                usdtContract = new web3.eth.Contract(USDT_ABI, USDT_CONTRACT);
+
+                isConnected = true;
+                statusDiv.textContent = `Connected: ${account}`;
+                statusDiv.className = 'status success';
+
+                // Enable buttons
+                document.getElementById('diagnosticBtn').disabled = false;
+                document.getElementById('refreshBtn').disabled = false;
+                document.getElementById('testUsdtBtn').disabled = false;
+                document.getElementById('testHpBtn').disabled = false;
+                document.getElementById('checkContractBtn').disabled = false;
+                document.getElementById('simulateBtn').disabled = false;
+                document.getElementById('burnBtn').disabled = false;
+
+                log('✅ Wallet connected successfully');
+                await refreshBalances();
+
+            } catch (error) {
+                const statusDiv = document.getElementById('connectionStatus');
+                statusDiv.textContent = `Error: ${error.message}`;
+                statusDiv.className = 'status error';
+                log('❌ Connection failed: ' + error.message);
+            }
+        }
+
+        async function refreshBalances() {
+            try {
+                log('🔄 Refreshing balances...');
+
+                // Get USDT balance (6 decimals)
+                const usdtBalanceRaw = await usdtContract.methods.balanceOf(account).call();
+                const usdtBalance = (parseInt(usdtBalanceRaw) / Math.pow(10, 6)).toString();
+                document.getElementById('usdtBalance').textContent = usdtBalance + ' USDT';
+
+                // Get HP balance (18 decimals)
+                const hpBalanceRaw = await hpContract.methods.balanceOf(account).call();
+                const hpBalance = web3.utils.fromWei(hpBalanceRaw, 'ether');
+                document.getElementById('hpBalance').textContent = hpBalance + ' HP';
+
+                // Get USDT allowance (6 decimals)
+                const allowanceRaw = await usdtContract.methods.allowance(account, HP_CONTRACT).call();
+                const allowance = (parseInt(allowanceRaw) / Math.pow(10, 6)).toString();
+                document.getElementById('usdtAllowance').textContent = allowance + ' USDT';
+
+                log(`💰 USDT Balance: ${usdtBalance} USDT`);
+                log(`🏦 HP Balance: ${hpBalance} HP`);
+                log(`📄 USDT Allowance: ${allowance} USDT`);
+
+            } catch (error) {
+                log('❌ Failed to refresh balances: ' + error.message);
+            }
+        }
+
+        async function testUSDTContract() {
+            try {
+                log('🧪 Testing USDT contract...');
+                
+                const decimals = await usdtContract.methods.decimals().call();
+                log(`✅ USDT decimals: ${decimals}`);
+                
+                const balance = await usdtContract.methods.balanceOf(account).call();
+                log(`✅ USDT balance (raw): ${balance}`);
+                log(`✅ USDT balance (formatted): ${parseInt(balance) / Math.pow(10, 6)} USDT`);
+
+            } catch (error) {
+                log('❌ USDT contract test failed: ' + error.message);
+            }
+        }
+
+        async function testHPContract() {
+            try {
+                log('🧪 Testing HP contract...');
+                
+                const name = await hpContract.methods.name().call();
+                const symbol = await hpContract.methods.symbol().call();
+                const decimals = await hpContract.methods.decimals().call();
+                
+                log(`✅ HP Contract Name: ${name}`);
+                log(`✅ HP Contract Symbol: ${symbol}`);
+                log(`✅ HP Contract Decimals: ${decimals}`);
+                
+                const hpToUsdtRate = await hpContract.methods.HP_TO_USDT_RATE().call();
+                log(`✅ HP to USDT Rate: ${hpToUsdtRate}`);
+
+            } catch (error) {
+                log('❌ HP contract test failed: ' + error.message);
+            }
+        }
+
+        async function checkContractUSDT() {
+            try {
+                log('🔍 Checking HP contract USDT holdings...');
+                
+                const contractUsdtBalance = await usdtContract.methods.balanceOf(HP_CONTRACT).call();
+                const formattedBalance = (parseInt(contractUsdtBalance) / Math.pow(10, 6));
+                
+                log(`💰 HP Contract USDT Balance: ${formattedBalance} USDT`);
+                
+                if (formattedBalance > 0) {
+                    log('✅ Contract has USDT - this might explain where your USDT went');
+                } else {
+                    log('❌ Contract has no USDT - transaction might have failed');
+                }
+
+            } catch (error) {
+                log('❌ Failed to check contract USDT: ' + error.message);
+            }
+        }
+
+        async function simulateMinting() {
+            try {
+                log('🧮 Simulating minting 1 HP token...');
+                
+                const hpAmount = web3.utils.toWei('1', 'ether'); // 1 HP in wei
+                log(`📊 HP Amount in wei: ${hpAmount}`);
+                
+                const collateralNeeded = await hpContract.methods.calculateCollateralNeeded(hpAmount).call();
+                const formattedCollateral = (parseInt(collateralNeeded) / Math.pow(10, 6));
+                
+                log(`💵 Collateral needed: ${collateralNeeded} (raw)`);
+                log(`💵 Collateral needed: ${formattedCollateral} USDT (formatted)`);
+                
+                if (formattedCollateral === 11.55) {
+                    log('✅ Collateral calculation is correct');
+                } else {
+                    log('❌ Collateral calculation might be wrong');
+                }
+
+            } catch (error) {
+                log('❌ Simulation failed: ' + error.message);
+            }
+        }
+
+        async function testBurn() {
+            try {
+                const burnStatus = document.getElementById('burnStatus');
+                burnStatus.textContent = 'Testing burn...';
+                burnStatus.className = 'status checking';
+                
+                log('🔥 Testing burn of 0.1 HP tokens...');
+                
+                const burnAmount = web3.utils.toWei('0.1', 'ether'); // 0.1 HP
+                const usdtReturn = await hpContract.methods.calculateUSDTReturn(burnAmount).call();
+                const formattedReturn = (parseInt(usdtReturn) / Math.pow(10, 6));
+                
+                log(`💰 Expected USDT return: ${formattedReturn} USDT`);
+                
+                if (confirm(`This will burn 0.1 HP tokens and return ~${formattedReturn} USDT. Proceed?`)) {
+                    const tx = await hpContract.methods.burnTokens(burnAmount).send({from: account});
+                    log(`✅ Burn successful: ${tx.transactionHash}`);
+                    burnStatus.textContent = 'Burn successful!';
+                    burnStatus.className = 'status success';
+                    await refreshBalances();
+                } else {
+                    log('🚫 Burn cancelled by user');
+                    burnStatus.textContent = 'Burn cancelled';
+                    burnStatus.className = 'status';
+                }
+                
+            } catch (error) {
+                log('❌ Burn test failed: ' + error.message);
+                const burnStatus = document.getElementById('burnStatus');
+                burnStatus.textContent = 'Burn failed';
+                burnStatus.className = 'status error';
+            }
+        }
+
+        async function runFullDiagnostic() {
+            log('🔍 Starting full diagnostic...');
+            await refreshBalances();
+            await testUSDTContract();
+            await testHPContract();
+            await checkContractUSDT();
+            await simulateMinting();
+            log('✅ Full diagnostic complete');
+        }
+    </script>
+</body>
+</html>

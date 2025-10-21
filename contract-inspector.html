@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HP Contract Inspector</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.4/dist/web3.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #666;
+            white-space: pre-wrap;
+        }
+        .success { background: #0d4d1c; border-color: #28a745; }
+        .error { background: #4d0d0d; border-color: #dc3545; }
+        .warning { background: #4d3d0d; border-color: #ffc107; }
+        .info { background: #0d2d4d; border-color: #17a2b8; }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        .test-button:hover { background: #0056b3; }
+        .test-button:disabled { background: #666; cursor: not-allowed; }
+        .code-block {
+            background: #333;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            border: 1px solid #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 HP Contract Inspector</h1>
+    <p>Deep analysis of the Happy Paisa contract to identify minting issues.</p>
+    
+    <div>
+        <button class="test-button" onclick="inspectContract()">🕵️ Inspect Contract</button>
+        <button class="test-button" onclick="testMintConditions()">🧪 Test Mint Conditions</button>
+        <button class="test-button" onclick="simulateMint()">⚡ Simulate Mint</button>
+        <button class="test-button" onclick="clearResults()">🧹 Clear Results</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        const resultsDiv = document.getElementById('results');
+        
+        const HP_CONTRACT_ADDRESS = '0xf99ae6F3234b5E7f247BD12A8a59668Aa479E560';
+        const USDT_CONTRACT_ADDRESS = '0x55d398326f99059fF775485246999027B3197955';
+        
+        // Extended HP Contract ABI with more methods for inspection
+        const HP_CONTRACT_ABI = [
+            {"constant": true, "inputs": [], "name": "name", "outputs": [{"name": "", "type": "string"}], "type": "function"},
+            {"constant": true, "inputs": [], "name": "symbol", "outputs": [{"name": "", "type": "string"}], "type": "function"},
+            {"constant": true, "inputs": [], "name": "decimals", "outputs": [{"name": "", "type": "uint8"}], "type": "function"},
+            {"constant": true, "inputs": [], "name": "totalSupply", "outputs": [{"name": "", "type": "uint256"}], "type": "function"},
+            {"constant": true, "inputs": [{"name": "_owner", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "balance", "type": "uint256"}], "type": "function"},
+            {"constant": false, "inputs": [{"name": "usdtAmount", "type": "uint256"}], "name": "mint", "outputs": [], "payable": false, "type": "function"},
+            {"constant": true, "inputs": [], "name": "owner", "outputs": [{"name": "", "type": "address"}], "type": "function"},
+            {"constant": true, "inputs": [], "name": "paused", "outputs": [{"name": "", "type": "bool"}], "type": "function"},
+            {"constant": true, "inputs": [], "name": "usdtToken", "outputs": [{"name": "", "type": "address"}], "type": "function"},
+            {"constant": true, "inputs": [], "name": "getCollateralRatio", "outputs": [{"name": "", "type": "uint256"}], "type": "function"},
+            // Additional methods that might exist
+            {"constant": true, "inputs": [], "name": "mintingEnabled", "outputs": [{"name": "", "type": "bool"}], "type": "function"},
+            {"constant": true, "inputs": [], "name": "maxSupply", "outputs": [{"name": "", "type": "uint256"}], "type": "function"},
+            {"constant": true, "inputs": [{"name": "", "type": "address"}], "name": "whitelist", "outputs": [{"name": "", "type": "bool"}], "type": "function"}
+        ];
+        
+        const USDT_ABI = [
+            {"constant": true, "inputs": [{"name": "_owner", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "balance", "type": "uint256"}], "type": "function"},
+            {"constant": true, "inputs": [{"name": "_owner", "type": "address"}, {"name": "_spender", "type": "address"}], "name": "allowance", "outputs": [{"name": "", "type": "uint256"}], "type": "function"},
+            {"constant": true, "inputs": [], "name": "decimals", "outputs": [{"name": "", "type": "uint8"}], "type": "function"}
+        ];
+        
+        let web3, hpContract, usdtContract, account;
+        
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong><br>${message}`;
+            resultsDiv.appendChild(div);
+            div.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function clearResults() {
+            resultsDiv.innerHTML = '';
+        }
+        
+        async function initializeWeb3() {
+            if (!web3) {
+                if (typeof window.ethereum !== 'undefined') {
+                    web3 = new Web3(window.ethereum);
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    account = accounts[0];
+                    
+                    hpContract = new web3.eth.Contract(HP_CONTRACT_ABI, HP_CONTRACT_ADDRESS);
+                    usdtContract = new web3.eth.Contract(USDT_ABI, USDT_CONTRACT_ADDRESS);
+                    
+                    addResult(`✅ Connected to ${account}`, 'success');
+                } else {
+                    throw new Error('MetaMask not available');
+                }
+            }
+        }
+        
+        async function inspectContract() {
+            try {
+                await initializeWeb3();
+                addResult('🔍 Starting deep contract inspection...', 'info');
+                
+                // Basic contract info
+                const name = await hpContract.methods.name().call();
+                const symbol = await hpContract.methods.symbol().call();
+                const decimals = await hpContract.methods.decimals().call();
+                const totalSupply = await hpContract.methods.totalSupply().call();
+                
+                addResult(`📋 Contract Details:
+Name: ${name}
+Symbol: ${symbol}
+Decimals: ${decimals}
+Total Supply: ${web3.utils.fromWei(totalSupply.toString(), 'ether')} ${symbol}`, 'info');
+                
+                // Ownership and control
+                try {
+                    const owner = await hpContract.methods.owner().call();
+                    addResult(`👑 Contract Owner: ${owner}`, 'info');
+                    
+                    if (owner.toLowerCase() === account.toLowerCase()) {
+                        addResult('✅ You are the contract owner', 'success');
+                    } else {
+                        addResult('ℹ️ You are not the contract owner', 'info');
+                    }
+                } catch (e) {
+                    addResult('⚠️ Could not fetch owner (method might not exist)', 'warning');
+                }
+                
+                // Pause status
+                try {
+                    const paused = await hpContract.methods.paused().call();
+                    addResult(`⏸️ Contract Paused: ${paused ? '❌ YES' : '✅ NO'}`, paused ? 'error' : 'success');
+                } catch (e) {
+                    addResult('⚠️ Could not check pause status', 'warning');
+                }
+                
+                // USDT token address
+                try {
+                    const usdtAddress = await hpContract.methods.usdtToken().call();
+                    addResult(`💰 Contract USDT Address: ${usdtAddress}`, 'info');
+                    addResult(`💰 Our USDT Address: ${USDT_CONTRACT_ADDRESS}`, 'info');
+                    
+                    if (usdtAddress.toLowerCase() === USDT_CONTRACT_ADDRESS.toLowerCase()) {
+                        addResult('✅ USDT addresses match', 'success');
+                    } else {
+                        addResult('❌ USDT address mismatch! This is likely the issue.', 'error');
+                    }
+                } catch (e) {
+                    addResult('⚠️ Could not fetch USDT token address', 'warning');
+                }
+                
+                // Check additional restrictions
+                try {
+                    const mintingEnabled = await hpContract.methods.mintingEnabled().call();
+                    addResult(`🏭 Minting Enabled: ${mintingEnabled ? '✅ YES' : '❌ NO'}`, mintingEnabled ? 'success' : 'error');
+                } catch (e) {
+                    addResult('⚠️ Could not check minting enabled status', 'warning');
+                }
+                
+                try {
+                    const maxSupply = await hpContract.methods.maxSupply().call();
+                    addResult(`📊 Max Supply: ${web3.utils.fromWei(maxSupply.toString(), 'ether')} tokens`, 'info');
+                } catch (e) {
+                    addResult('⚠️ Could not check max supply', 'warning');
+                }
+                
+                // Check whitelist
+                try {
+                    const whitelisted = await hpContract.methods.whitelist(account).call();
+                    addResult(`📋 Account Whitelisted: ${whitelisted ? '✅ YES' : '❌ NO'}`, whitelisted ? 'success' : 'warning');
+                } catch (e) {
+                    addResult('⚠️ Could not check whitelist status', 'warning');
+                }
+                
+                // Collateral ratio
+                try {
+                    const collateralRatio = await hpContract.methods.getCollateralRatio().call();
+                    addResult(`📊 Collateral Ratio: ${collateralRatio}%`, 'info');
+                } catch (e) {
+                    addResult('⚠️ Could not fetch collateral ratio', 'warning');
+                }
+                
+                addResult('✅ Contract inspection complete', 'success');
+                
+            } catch (error) {
+                addResult(`❌ Inspection failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testMintConditions() {
+            try {
+                await initializeWeb3();
+                addResult('🧪 Testing mint conditions...', 'info');
+                
+                // Get account balances
+                const usdtBalance = await usdtContract.methods.balanceOf(account).call();
+                const usdtBalanceFormatted = web3.utils.fromWei(usdtBalance.toString(), 'ether');
+                addResult(`💵 Your USDT Balance: ${usdtBalanceFormatted} USDT`, 'info');
+                
+                const allowance = await usdtContract.methods.allowance(account, HP_CONTRACT_ADDRESS).call();
+                const allowanceFormatted = web3.utils.fromWei(allowance.toString(), 'ether');
+                addResult(`📄 USDT Allowance: ${allowanceFormatted} USDT`, 'info');
+                
+                const bnbBalance = await web3.eth.getBalance(account);
+                const bnbBalanceFormatted = web3.utils.fromWei(bnbBalance.toString(), 'ether');
+                addResult(`🔶 BNB Balance: ${bnbBalanceFormatted} BNB`, 'info');
+                
+                // Test amounts
+                const testAmount = web3.utils.toWei('11', 'ether'); // 11 USDT
+                
+                // Check if sufficient balance
+                if (parseFloat(usdtBalanceFormatted) >= 11) {
+                    addResult('✅ Sufficient USDT balance for 1 HP mint', 'success');
+                } else {
+                    addResult('❌ Insufficient USDT balance', 'error');
+                }
+                
+                // Check if sufficient allowance
+                if (parseFloat(allowanceFormatted) >= 11) {
+                    addResult('✅ Sufficient USDT allowance', 'success');
+                } else {
+                    addResult('❌ Insufficient USDT allowance', 'error');
+                }
+                
+                // Check BNB for gas
+                if (parseFloat(bnbBalanceFormatted) >= 0.001) {
+                    addResult('✅ Sufficient BNB for gas fees', 'success');
+                } else {
+                    addResult('⚠️ Low BNB balance for gas fees', 'warning');
+                }
+                
+                addResult('✅ Mint conditions check complete', 'success');
+                
+            } catch (error) {
+                addResult(`❌ Condition check failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function simulateMint() {
+            try {
+                await initializeWeb3();
+                addResult('⚡ Simulating mint transaction...', 'info');
+                
+                const testAmount = web3.utils.toWei('11', 'ether'); // 11 USDT for 1 HP
+                
+                // Try to estimate gas (this should fail with the same error)
+                try {
+                    const gasEstimate = await hpContract.methods.mint(testAmount).estimateGas({
+                        from: account
+                    });
+                    
+                    addResult(`✅ Gas estimation successful: ${gasEstimate}`, 'success');
+                    addResult('🎉 Mint should work! Try minting from the main app.', 'success');
+                    
+                } catch (gasError) {
+                    addResult(`❌ Gas estimation failed: ${gasError.message}`, 'error');
+                    
+                    // Try to decode the error
+                    if (gasError.message.includes('Internal JSON-RPC error')) {
+                        addResult('🔍 Analyzing contract rejection...', 'info');
+                        
+                        // Common reasons for mint failure
+                        const possibleReasons = [
+                            'Contract is paused',
+                            'Minting is disabled',
+                            'Wrong USDT token address configured in contract',
+                            'Account not whitelisted',
+                            'Maximum supply reached',
+                            'Collateral requirements not met',
+                            'Contract requires additional permissions'
+                        ];
+                        
+                        addResult(`🤔 Possible reasons for rejection:
+${possibleReasons.map((reason, i) => `${i+1}. ${reason}`).join('\n')}`, 'warning');
+                    }
+                    
+                    // Try a different approach - call the mint function directly to see the revert reason
+                    try {
+                        const result = await hpContract.methods.mint(testAmount).call({
+                            from: account
+                        });
+                        addResult('🤔 Call succeeded but estimateGas failed - unusual behavior', 'warning');
+                    } catch (callError) {
+                        addResult(`💡 Direct call error: ${callError.message}`, 'error');
+                        
+                        // This might give us the actual revert reason
+                        if (callError.message.includes('revert')) {
+                            const revertReason = callError.message.match(/revert (.+)/);
+                            if (revertReason) {
+                                addResult(`🎯 Revert reason: ${revertReason[1]}`, 'error');
+                            }
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                addResult(`❌ Simulation failed: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

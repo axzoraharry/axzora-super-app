@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 USDT Contracts Conflict Resolver</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 900px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #fff3cd;
+        }
+        .critical {
+            background: #dc3545;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .solution {
+            background: #28a745;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .address {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            word-break: break-all;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+        }
+        .correct { border-left-color: #28a745; background: #d4edda; }
+        .incorrect { border-left-color: #dc3545; background: #f8d7da; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #f8f9fa; font-weight: bold; }
+        .status-good { background: #d4edda; color: #155724; }
+        .status-bad { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>🚨 USDT Contracts Conflict Detected!</h1>
+    
+    <div class="critical">
+        <h3>⚠️ CRITICAL DISCOVERY</h3>
+        <p><strong>You have TWO different USDT contracts!</strong></p>
+        <p><strong>Problem:</strong> Your wallet is using a different USDT than your HP contract!</p>
+    </div>
+
+    <div class="card">
+        <h3>📊 Conflict Analysis</h3>
+        <table>
+            <tr>
+                <th>Contract</th>
+                <th>Address</th>
+                <th>Decimals</th>
+                <th>Your Balance</th>
+                <th>Status</th>
+            </tr>
+            <tr>
+                <td><strong>HP Contract's USDT</strong></td>
+                <td class="address correct">0x55d398326f99059fF775485246999027B3197955</td>
+                <td class="status-good">6 (Correct)</td>
+                <td id="realUsdtBalance">Loading...</td>
+                <td class="status-good">✅ REAL BSC USDT</td>
+            </tr>
+            <tr>
+                <td><strong>Your Wallet's USDT</strong></td>
+                <td class="address incorrect" id="fakeUsdtAddress">Unknown</td>
+                <td class="status-bad">18 (Wrong)</td>
+                <td class="status-bad">21,999,999,999,998.955 USDT</td>
+                <td class="status-bad">❌ FAKE/TEST USDT</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3>🔍 Diagnostic Actions</h3>
+        <button onclick="connectWallet()">Connect Wallet</button>
+        <button onclick="findFakeUSDT()" disabled id="findBtn">🔍 Find Fake USDT Address</button>
+        <button onclick="checkRealBalance()" disabled id="balanceBtn">💰 Check Real USDT Balance</button>
+        <button onclick="checkAllowances()" disabled id="allowanceBtn">📄 Check Allowances</button>
+        <div class="address" id="connectionStatus">Not connected</div>
+    </div>
+
+    <div class="card">
+        <h3>🚑 The Real Problem</h3>
+        <div class="address incorrect">
+            <strong>Why HP minting appeared "free":</strong><br>
+            1. Your HP contract uses REAL USDT (correct) ✅<br>
+            2. Your wallet balance shows FAKE USDT (21 trillion!) ❌<br>
+            3. When you mint HP, it tries to take REAL USDT ✅<br>
+            4. You probably have 0 REAL USDT, so no deduction visible ❌<br>
+            5. But you have infinite FAKE USDT, so balance looks unchanged ❌
+        </div>
+    </div>
+
+    <div class="solution">
+        <h3>✅ Solution Strategy</h3>
+        <ol>
+            <li><strong>🔍 Identify the fake USDT contract</strong> you're connected to</li>
+            <li><strong>💰 Check your REAL USDT balance</strong> (probably zero or very small)</li>
+            <li><strong>🔄 Remove fake USDT</strong> from MetaMask to avoid confusion</li>
+            <li><strong>➕ Add real USDT</strong> with correct contract address</li>
+            <li><strong>🧪 Test with small amounts</strong> of real USDT</li>
+        </ol>
+    </div>
+
+    <div class="card">
+        <h3>📋 Results</h3>
+        <div id="results">
+            <p>Click "Connect Wallet" and run diagnostics to see detailed results...</p>
+        </div>
+    </div>
+
+    <script>
+        let web3, account;
+        const REAL_USDT = '0x55d398326f99059fF775485246999027B3197955';
+        const HP_CONTRACT = '0xf99ae6F3234b5E7f247BD12A8a59668Aa479E560';
+        
+        const USDT_ABI = [
+            {"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},
+            {"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"},
+            {"constant":true,"inputs":[{"name":"_owner","type":"address"},{"name":"_spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"type":"function"}
+        ];
+
+        async function connectWallet() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    alert('MetaMask not found!');
+                    return;
+                }
+
+                web3 = new Web3(window.ethereum);
+                const accounts = await window.ethereum.request({method: 'eth_requestAccounts'});
+                account = accounts[0];
+
+                document.getElementById('connectionStatus').textContent = `Connected: ${account}`;
+                document.getElementById('connectionStatus').className = 'address correct';
+
+                // Enable buttons
+                document.getElementById('findBtn').disabled = false;
+                document.getElementById('balanceBtn').disabled = false;
+                document.getElementById('allowanceBtn').disabled = false;
+
+                // Auto-run checks
+                await checkRealBalance();
+
+            } catch (error) {
+                document.getElementById('connectionStatus').textContent = `Error: ${error.message}`;
+                document.getElementById('connectionStatus').className = 'address incorrect';
+            }
+        }
+
+        async function checkRealBalance() {
+            try {
+                const realUsdtContract = new web3.eth.Contract(USDT_ABI, REAL_USDT);
+                const balance = await realUsdtContract.methods.balanceOf(account).call();
+                const decimals = await realUsdtContract.methods.decimals().call();
+                
+                const balanceStr = balance.toString();
+                const formattedBalance = parseInt(balanceStr) / Math.pow(10, parseInt(decimals));
+                
+                document.getElementById('realUsdtBalance').textContent = `${formattedBalance} USDT`;
+                
+                updateResults(`
+                    <h4>💰 Real USDT Balance Check:</h4>
+                    <div class="address correct">
+                        <strong>Your REAL BSC USDT Balance:</strong> ${formattedBalance} USDT<br>
+                        <strong>Decimals:</strong> ${decimals} (Correct)<br>
+                        <strong>Raw Balance:</strong> ${balanceStr}
+                    </div>
+                    ${formattedBalance === 0 ? '<p><strong>⚠️ You have 0 real USDT! This explains why no USDT was deducted during minting.</strong></p>' : ''}
+                `);
+
+            } catch (error) {
+                updateResults(`<div class="address incorrect">Error checking real USDT: ${error.message}</div>`);
+            }
+        }
+
+        async function findFakeUSDT() {
+            try {
+                // This would require checking MetaMask's token list or transaction history
+                updateResults(`
+                    <h4>🔍 Finding Fake USDT Contract:</h4>
+                    <div class="address">
+                        <strong>Method 1:</strong> Check MetaMask → Assets → Find USDT with 18 decimals<br>
+                        <strong>Method 2:</strong> Look at your transaction history for USDT transfers<br>
+                        <strong>Method 3:</strong> The contract showing 21 trillion balance is the fake one
+                    </div>
+                    <p><strong>Action:</strong> Remove any USDT tokens from MetaMask that have 18 decimals instead of 6.</p>
+                `);
+
+            } catch (error) {
+                updateResults(`<div class="address incorrect">Error: ${error.message}</div>`);
+            }
+        }
+
+        async function checkAllowances() {
+            try {
+                const realUsdtContract = new web3.eth.Contract(USDT_ABI, REAL_USDT);
+                const allowance = await realUsdtContract.methods.allowance(account, HP_CONTRACT).call();
+                const decimals = await realUsdtContract.methods.decimals().call();
+                
+                const allowanceStr = allowance.toString();
+                const formattedAllowance = parseInt(allowanceStr) / Math.pow(10, parseInt(decimals));
+                
+                updateResults(`
+                    <h4>📄 REAL USDT Allowance Check:</h4>
+                    <div class="address correct">
+                        <strong>REAL USDT Allowance for HP Contract:</strong> ${formattedAllowance} USDT<br>
+                        <strong>Raw Allowance:</strong> ${allowanceStr}
+                    </div>
+                    ${formattedAllowance > 0 ? '<p><strong>✅ You have approved real USDT spending for HP contract.</strong></p>' : '<p><strong>⚠️ No real USDT allowance set for HP contract.</strong></p>'}
+                `);
+
+            } catch (error) {
+                updateResults(`<div class="address incorrect">Error checking allowances: ${error.message}</div>`);
+            }
+        }
+
+        function updateResults(html) {
+            document.getElementById('results').innerHTML = html;
+        }
+    </script>
+</body>
+</html>

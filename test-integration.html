@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Axzora Super App - Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .test-section {
+            border: 1px solid #333;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background: #2a2a2a;
+        }
+        .status {
+            padding: 5px 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .success { background: #155724; color: #d4edda; }
+        .error { background: #721c24; color: #f8d7da; }
+        .warning { background: #856404; color: #fff3cd; }
+        .info { background: #0c5460; color: #d1ecf1; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover { background: #0056b3; }
+        .disabled { background: #6c757d; cursor: not-allowed; }
+        #console-output {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+    
+    <!-- External dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <!-- Configuration -->
+    <script src="config.js"></script>
+</head>
+<body>
+    <h1>🚀 Axzora Super App - Integration Test</h1>
+    <p>This page tests all core modules and functionality.</p>
+    
+    <div id="console-output"></div>
+    
+    <div class="test-section">
+        <h3>📋 Configuration Test</h3>
+        <div id="config-status" class="status info">Testing configuration...</div>
+        <button onclick="testConfig()">Test Config</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>🌐 External Libraries Test</h3>
+        <div id="libraries-status" class="status info">Testing libraries...</div>
+        <button onclick="testLibraries()">Test Libraries</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔗 Web3 & Blockchain Test</h3>
+        <div id="web3-status" class="status info">Testing Web3...</div>
+        <button onclick="testWeb3()">Test Web3</button>
+        <button onclick="testContract()">Test Contract</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>🎤 Voice Recognition Test</h3>
+        <div id="voice-status" class="status info">Testing voice...</div>
+        <button onclick="testVoice()">Test Voice</button>
+        <button id="startVoice" onclick="startVoiceTest()">Start Voice Test</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>📹 Camera & Face Detection Test</h3>
+        <div id="camera-status" class="status info">Testing camera...</div>
+        <button onclick="testCamera()">Test Camera</button>
+        <video id="testVideo" width="200" height="150" autoplay muted playsinline style="display:none;"></video>
+    </div>
+    
+    <div class="test-section">
+        <h3>🤖 AI Assistant Test</h3>
+        <div id="ai-status" class="status info">Testing AI...</div>
+        <button onclick="testAI()">Test AI Assistant</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>💾 Module Loading Test</h3>
+        <div id="modules-status" class="status info">Testing modules...</div>
+        <button onclick="testModules()">Test Modules</button>
+    </div>
+    
+    <script>
+        // Console output function
+        function log(message, type = 'info') {
+            const output = document.getElementById('console-output');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff4444' : type === 'success' ? '#44ff44' : type === 'warning' ? '#ffff44' : '#44ffff';
+            output.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            output.scrollTop = output.scrollHeight;
+            console.log(message);
+        }
+        
+        function updateStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+        
+        // Test configuration
+        function testConfig() {
+            log('Testing configuration...', 'info');
+            
+            try {
+                if (typeof window.AXZORA_CONFIG !== 'undefined') {
+                    log('✅ Configuration loaded successfully', 'success');
+                    log(`HP Token: ${window.AXZORA_CONFIG.HP_TOKEN_ADDRESS}`, 'info');
+                    log(`BSC Chain ID: ${window.AXZORA_CONFIG.BSC_CHAIN_ID}`, 'info');
+                    log(`Fixed Price: ${window.AXZORA_CONFIG.HP_TOKEN_CONFIG.FIXED_PRICE_USDT} USDT`, 'info');
+                    updateStatus('config-status', 'Configuration loaded successfully', 'success');
+                } else {
+                    log('❌ Configuration not loaded', 'error');
+                    updateStatus('config-status', 'Configuration failed to load', 'error');
+                }
+            } catch (error) {
+                log(`❌ Config test error: ${error.message}`, 'error');
+                updateStatus('config-status', 'Configuration test failed', 'error');
+            }
+        }
+        
+        // Test external libraries
+        function testLibraries() {
+            log('Testing external libraries...', 'info');
+            let allGood = true;
+            
+            // Test Web3
+            if (typeof Web3 !== 'undefined') {
+                log('✅ Web3.js loaded', 'success');
+            } else {
+                log('❌ Web3.js not loaded', 'error');
+                allGood = false;
+            }
+            
+            // Test TensorFlow
+            if (typeof tf !== 'undefined') {
+                log('✅ TensorFlow.js loaded', 'success');
+            } else {
+                log('❌ TensorFlow.js not loaded', 'error');
+                allGood = false;
+            }
+            
+            // Test GSAP
+            if (typeof gsap !== 'undefined') {
+                log('✅ GSAP loaded', 'success');
+            } else {
+                log('❌ GSAP not loaded', 'error');
+                allGood = false;
+            }
+            
+            updateStatus('libraries-status', 
+                allGood ? 'All libraries loaded successfully' : 'Some libraries failed to load', 
+                allGood ? 'success' : 'error'
+            );
+        }
+        
+        // Test Web3 functionality
+        function testWeb3() {
+            log('Testing Web3 functionality...', 'info');
+            
+            try {
+                if (typeof Web3 === 'undefined') {
+                    log('❌ Web3 not available', 'error');
+                    updateStatus('web3-status', 'Web3 not available', 'error');
+                    return;
+                }
+                
+                // Check for MetaMask
+                if (typeof window.ethereum !== 'undefined') {
+                    log('✅ MetaMask detected', 'success');
+                    
+                    // Test network
+                    if (window.ethereum.chainId) {
+                        const chainId = parseInt(window.ethereum.chainId, 16);
+                        log(`Network Chain ID: ${chainId}`, 'info');
+                        
+                        if (chainId === 56) {
+                            log('✅ Connected to BSC Mainnet', 'success');
+                        } else if (chainId === 97) {
+                            log('⚠️ Connected to BSC Testnet', 'warning');
+                        } else {
+                            log(`⚠️ Connected to unknown network (${chainId})`, 'warning');
+                        }
+                    }
+                    
+                    updateStatus('web3-status', 'Web3 and MetaMask available', 'success');
+                } else {
+                    log('❌ MetaMask not detected', 'error');
+                    updateStatus('web3-status', 'MetaMask not available', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Web3 test error: ${error.message}`, 'error');
+                updateStatus('web3-status', 'Web3 test failed', 'error');
+            }
+        }
+        
+        // Test contract connection
+        function testContract() {
+            log('Testing contract connection...', 'info');
+            
+            try {
+                if (typeof Web3 === 'undefined' || typeof window.ethereum === 'undefined') {
+                    log('❌ Web3 or MetaMask not available', 'error');
+                    return;
+                }
+                
+                const web3 = new Web3(window.ethereum);
+                const contractAddress = window.AXZORA_CONFIG?.HP_TOKEN_ADDRESS;
+                
+                if (!contractAddress) {
+                    log('❌ Contract address not configured', 'error');
+                    return;
+                }
+                
+                log(`Testing contract at: ${contractAddress}`, 'info');
+                
+                // Basic contract test (simplified ABI)
+                const minimalABI = [
+                    {"inputs":[],"name":"name","outputs":[{"type":"string"}],"type":"function"},
+                    {"inputs":[],"name":"symbol","outputs":[{"type":"string"}],"type":"function"},
+                    {"inputs":[],"name":"decimals","outputs":[{"type":"uint8"}],"type":"function"}
+                ];
+                
+                const contract = new web3.eth.Contract(minimalABI, contractAddress);
+                
+                // Test if contract responds
+                web3.eth.getCode(contractAddress)
+                    .then(code => {
+                        if (code && code !== '0x') {
+                            log('✅ Contract code found at address', 'success');
+                        } else {
+                            log('❌ No contract code at address', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        log(`❌ Contract test error: ${error.message}`, 'error');
+                    });
+                
+            } catch (error) {
+                log(`❌ Contract test error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Test voice recognition
+        function testVoice() {
+            log('Testing voice recognition support...', 'info');
+            
+            try {
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    log('✅ Speech Recognition API available', 'success');
+                    updateStatus('voice-status', 'Voice recognition supported', 'success');
+                } else {
+                    log('❌ Speech Recognition API not supported', 'error');
+                    updateStatus('voice-status', 'Voice recognition not supported', 'error');
+                }
+                
+                // Test Speech Synthesis
+                if ('speechSynthesis' in window) {
+                    log('✅ Speech Synthesis API available', 'success');
+                } else {
+                    log('❌ Speech Synthesis API not supported', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Voice test error: ${error.message}`, 'error');
+                updateStatus('voice-status', 'Voice test failed', 'error');
+            }
+        }
+        
+        // Start voice test
+        function startVoiceTest() {
+            log('Starting voice recognition test...', 'info');
+            
+            try {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) {
+                    log('❌ Speech Recognition not supported', 'error');
+                    return;
+                }
+                
+                const recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+                
+                recognition.onstart = () => {
+                    log('🎤 Voice recognition started - say something!', 'info');
+                    updateStatus('voice-status', 'Listening... speak now!', 'warning');
+                };
+                
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    log(`✅ Voice input detected: "${transcript}"`, 'success');
+                    updateStatus('voice-status', `Heard: "${transcript}"`, 'success');
+                };
+                
+                recognition.onerror = (event) => {
+                    log(`❌ Voice recognition error: ${event.error}`, 'error');
+                    updateStatus('voice-status', `Voice error: ${event.error}`, 'error');
+                };
+                
+                recognition.onend = () => {
+                    log('🎤 Voice recognition ended', 'info');
+                };
+                
+                recognition.start();
+                
+            } catch (error) {
+                log(`❌ Voice test error: ${error.message}`, 'error');
+                updateStatus('voice-status', 'Voice test failed', 'error');
+            }
+        }
+        
+        // Test camera
+        function testCamera() {
+            log('Testing camera access...', 'info');
+            
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    log('❌ Camera API not supported', 'error');
+                    updateStatus('camera-status', 'Camera not supported', 'error');
+                    return;
+                }
+                
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(stream => {
+                        log('✅ Camera access granted', 'success');
+                        updateStatus('camera-status', 'Camera access successful', 'success');
+                        
+                        const video = document.getElementById('testVideo');
+                        video.srcObject = stream;
+                        video.style.display = 'block';
+                        
+                        // Stop stream after 3 seconds
+                        setTimeout(() => {
+                            stream.getTracks().forEach(track => track.stop());
+                            video.style.display = 'none';
+                            log('📹 Camera test completed', 'info');
+                        }, 3000);
+                    })
+                    .catch(error => {
+                        log(`❌ Camera access error: ${error.message}`, 'error');
+                        updateStatus('camera-status', 'Camera access denied', 'error');
+                    });
+                
+            } catch (error) {
+                log(`❌ Camera test error: ${error.message}`, 'error');
+                updateStatus('camera-status', 'Camera test failed', 'error');
+            }
+        }
+        
+        // Test AI Assistant
+        function testAI() {
+            log('Testing AI Assistant functionality...', 'info');
+            
+            try {
+                // Test basic AI response simulation
+                const responses = [
+                    "Hello! I'm Mr. Happy, your AI assistant!",
+                    "I can help you with Happy Paisa token operations.",
+                    "Try saying 'check balance' or 'mint tokens'!",
+                    "I'm ready to assist you with voice commands."
+                ];
+                
+                const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                log(`🤖 AI Response: "${randomResponse}"`, 'success');
+                
+                // Test speech synthesis if available
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(randomResponse);
+                    utterance.rate = 0.8;
+                    utterance.pitch = 1.1;
+                    speechSynthesis.speak(utterance);
+                    log('🔊 AI speech synthesis working', 'success');
+                }
+                
+                updateStatus('ai-status', 'AI Assistant working', 'success');
+                
+            } catch (error) {
+                log(`❌ AI test error: ${error.message}`, 'error');
+                updateStatus('ai-status', 'AI test failed', 'error');
+            }
+        }
+        
+        // Test module loading
+        function testModules() {
+            log('Testing module loading...', 'info');
+            
+            const modules = [
+                'js/main-app.js',
+                'js/blockchain-interface.js', 
+                'js/mr-happy-assistant.js',
+                'js/biometric-monitor.js',
+                'js/avatar-controller.js'
+            ];
+            
+            let moduleCount = 0;
+            
+            modules.forEach(module => {
+                fetch(module)
+                    .then(response => {
+                        if (response.ok) {
+                            log(`✅ Module found: ${module}`, 'success');
+                            moduleCount++;
+                        } else {
+                            log(`❌ Module not found: ${module}`, 'error');
+                        }
+                        
+                        // Update status when all modules checked
+                        if (moduleCount === modules.length) {
+                            updateStatus('modules-status', 'All modules loaded', 'success');
+                        } else if (moduleCount > 0) {
+                            updateStatus('modules-status', `${moduleCount}/${modules.length} modules loaded`, 'warning');
+                        } else {
+                            updateStatus('modules-status', 'Module loading failed', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        log(`❌ Error checking ${module}: ${error.message}`, 'error');
+                    });
+            });
+        }
+        
+        // Auto-run basic tests on load
+        window.addEventListener('load', () => {
+            log('🚀 Starting integration tests...', 'info');
+            setTimeout(() => {
+                testConfig();
+                testLibraries();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

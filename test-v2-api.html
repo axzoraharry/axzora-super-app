@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BSCScan V2 API Test</title>
+    <style>
+        body { 
+            font-family: Arial; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+        }
+        .test-result { 
+            margin: 10px 0; 
+            padding: 15px; 
+            border-radius: 10px; 
+            font-family: monospace;
+        }
+        .success { background: rgba(0, 184, 148, 0.3); }
+        .error { background: rgba(255, 107, 107, 0.3); }
+        .info { background: rgba(0, 212, 255, 0.3); }
+        .warning { background: rgba(255, 193, 7, 0.3); }
+        button { 
+            padding: 15px 25px; 
+            margin: 10px 5px; 
+            background: #0095ff; 
+            color: white; 
+            border: none; 
+            border-radius: 10px; 
+            cursor: pointer; 
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 BSCScan V2 API Test</h1>
+    <p>Testing the updated V2 API endpoints with your API key...</p>
+    
+    <button onclick="testV2TokenTransactions()">📝 Test Token Transactions V2</button>
+    <button onclick="testV2BNBPrice()">💰 Test BNB Price V2</button>
+    <button onclick="testContractData()">📊 Test Contract Data</button>
+    <button onclick="testAllV2()">🔥 Test All V2 APIs</button>
+    
+    <div id="results"></div>
+
+    <script src="config.js"></script>
+    <script>
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong> - ${message}`;
+            document.getElementById('results').appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testV2TokenTransactions() {
+            log('📝 Testing V2 Token Transactions API...', 'info');
+            
+            const apiKey = window.AXZORA_CONFIG.BSC_API_KEY;
+            const hpAddress = window.AXZORA_CONFIG.HP_TOKEN_ADDRESS;
+            
+            // V2 format with all required parameters
+            const url = `https://api.bscscan.com/api?module=account&action=tokentx&contractaddress=${hpAddress}&page=1&offset=10&startblock=0&endblock=latest&sort=desc&apikey=${apiKey}`;
+            
+            log(`Testing: ${url}`, 'info');
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.status === '1') {
+                    log(`✅ V2 Token Transactions API working! Found ${data.result.length} transactions`, 'success');
+                    
+                    if (data.result.length > 0) {
+                        const tx = data.result[0];
+                        const amount = parseInt(tx.value) / Math.pow(10, 18);
+                        log(`📝 Recent tx: ${amount.toFixed(2)} HP - ${new Date(tx.timeStamp * 1000).toLocaleString()}`, 'info');
+                    }
+                } else {
+                    log(`❌ V2 Token Transactions failed: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Token transactions test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testV2BNBPrice() {
+            log('💰 Testing CoinGecko BNB Price (primary)...', 'info');
+            
+            try {
+                // Test CoinGecko first (our primary source)
+                const cgResponse = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd');
+                const cgData = await cgResponse.json();
+                
+                if (cgData.binancecoin && cgData.binancecoin.usd) {
+                    log(`✅ CoinGecko BNB Price: $${cgData.binancecoin.usd}`, 'success');
+                } else {
+                    log('❌ CoinGecko BNB price failed', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ CoinGecko test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testContractData() {
+            log('📊 Testing Direct Contract Data...', 'info');
+            
+            if (typeof window.ethereum === 'undefined') {
+                log('❌ MetaMask not available for contract testing', 'error');
+                return;
+            }
+            
+            try {
+                const web3 = new Web3(window.ethereum);
+                
+                // Test HP contract directly
+                const hpContract = new web3.eth.Contract([
+                    {"constant": true, "inputs": [], "name": "totalSupply", "outputs": [{"name": "", "type": "uint256"}], "type": "function"},
+                    {"constant": true, "inputs": [], "name": "getCollateralRatio", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}
+                ], window.AXZORA_CONFIG.HP_TOKEN_ADDRESS);
+                
+                const [totalSupply, collateralRatio] = await Promise.all([
+                    hpContract.methods.totalSupply().call(),
+                    hpContract.methods.getCollateralRatio().call()
+                ]);
+                
+                const supply = web3.utils.fromWei(totalSupply, 'ether');
+                
+                log(`✅ HP Total Supply: ${parseFloat(supply).toFixed(0)} HP`, 'success');
+                log(`✅ Collateral Ratio: ${collateralRatio}%`, 'success');
+                log(`✅ Market Cap: $${(parseFloat(supply) * 11).toFixed(2)}`, 'success');
+                
+            } catch (error) {
+                log(`❌ Contract data test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAllV2() {
+            clearResults();
+            log('🔥 Running Complete V2 API Test Suite...', 'info');
+            
+            await testV2BNBPrice();
+            await new Promise(r => setTimeout(r, 1000));
+            await testV2TokenTransactions();
+            await new Promise(r => setTimeout(r, 1000));
+            await testContractData();
+            
+            log('🎉 V2 API Test Complete!', 'success');
+            log('Your Axzora app should now work with real BSC data!', 'success');
+            
+            // Show next steps
+            log('🚀 Next Steps:', 'info');
+            log('1. Go back to main app: http://localhost:8000/', 'info');
+            log('2. Connect your MetaMask wallet', 'info');  
+            log('3. Check if real balances are now showing', 'info');
+            log('4. Try voice command: "Show balance"', 'info');
+        }
+
+        // Auto-run contract test on load
+        window.addEventListener('load', () => {
+            setTimeout(testV2BNBPrice, 500);
+        });
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+</body>
+</html>

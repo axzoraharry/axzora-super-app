@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 Emergency USDT Contract Fix</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #ffe6e6;
+        }
+        .alert {
+            background: #ff4444;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .fix {
+            background: #4CAF50;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .address {
+            background: #f0f8ff;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+        .incorrect { 
+            background: #ffebee; 
+            border-left: 4px solid #f44336;
+        }
+        .correct { 
+            background: #e8f5e8; 
+            border-left: 4px solid #4caf50;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover { background: #5a67d8; }
+    </style>
+</head>
+<body>
+    <h1>🚨 CRITICAL: Wrong USDT Contract Detected!</h1>
+    
+    <div class="alert">
+        <h3>⚠️ EMERGENCY ISSUE FOUND</h3>
+        <p>Your HP token system is connected to a FAKE/TEST USDT contract!</p>
+        <p><strong>Impact:</strong> This breaks the entire economic model and allows free token minting!</p>
+    </div>
+
+    <div class="card">
+        <h3>🔍 Problem Analysis</h3>
+        <h4>❌ Current (WRONG) USDT Contract:</h4>
+        <div class="address incorrect">
+            <strong>Decimals:</strong> 18 (WRONG - should be 6)<br>
+            <strong>Your Balance:</strong> 21,999,999,999,988.45 USDT (Fake!)<br>
+            <strong>Type:</strong> Test/Fake USDT contract
+        </div>
+        
+        <h4>✅ Correct BSC USDT Contract:</h4>
+        <div class="address correct">
+            <strong>Contract Address:</strong> 0x55d398326f99059fF775485246999027B3197955<br>
+            <strong>Decimals:</strong> 6 (Correct)<br>
+            <strong>Name:</strong> Binance-Peg BSC-USD (BSC-USD)<br>
+            <strong>Type:</strong> Official BSC USDT
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>🔧 Immediate Fix Required</h3>
+        <p><strong>The HP contract is using the wrong USDT address!</strong></p>
+        
+        <h4>📋 Contract Analysis:</h4>
+        <ul>
+            <li>✅ HP Contract: 0xf99ae6F3234b5E7f247BD12A8a59668Aa479E560 (Correct)</li>
+            <li>❌ USDT Contract: Wrong address (18 decimals instead of 6)</li>
+            <li>✅ Mint/Burn Logic: Working correctly</li>
+            <li>❌ Economic Model: Broken due to fake USDT</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3>🚑 Emergency Actions Required</h3>
+        
+        <h4>1. 🔍 Check HP Contract USDT Address</h4>
+        <p>Verify what USDT address the HP contract is actually using:</p>
+        <button onclick="checkContractUSDT()">Check HP Contract USDT Address</button>
+        <div id="contractUsdtResult"></div>
+        
+        <h4>2. 🎯 Verify Real USDT Balance</h4>
+        <p>Check your real BSC USDT balance:</p>
+        <button onclick="checkRealUSDT()">Check Real BSC USDT Balance</button>
+        <div id="realUsdtResult"></div>
+        
+        <h4>3. 🔄 Fix Required</h4>
+        <p><strong>If HP contract is using wrong USDT:</strong></p>
+        <ul>
+            <li>📋 Contract needs to be redeployed with correct USDT address</li>
+            <li>🔄 Or use proxy pattern to update USDT address</li>
+            <li>⚠️ Current minted HP tokens may be invalid</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3>📊 Expected vs Actual</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #f5f5f5;">
+                <th style="padding: 10px; border: 1px solid #ddd;">Aspect</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Expected (Real)</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Actual (Current)</th>
+            </tr>
+            <tr>
+                <td style="padding: 10px; border: 1px solid #ddd;">USDT Decimals</td>
+                <td style="padding: 10px; border: 1px solid #ddd; background: #e8f5e8;">6</td>
+                <td style="padding: 10px; border: 1px solid #ddd; background: #ffebee;">18</td>
+            </tr>
+            <tr>
+                <td style="padding: 10px; border: 1px solid #ddd;">USDT Balance</td>
+                <td style="padding: 10px; border: 1px solid #ddd; background: #e8f5e8;">~22 USDT</td>
+                <td style="padding: 10px; border: 1px solid #ddd; background: #ffebee;">21,999,999,999,988 USDT</td>
+            </tr>
+            <tr>
+                <td style="padding: 10px; border: 1px solid #ddd;">Token Type</td>
+                <td style="padding: 10px; border: 1px solid #ddd; background: #e8f5e8;">Real BSC USDT</td>
+                <td style="padding: 10px; border: 1px solid #ddd; background: #ffebee;">Test/Fake USDT</td>
+            </tr>
+            <tr>
+                <td style="padding: 10px; border: 1px solid #ddd;">Economic Impact</td>
+                <td style="padding: 10px; border: 1px solid #ddd; background: #e8f5e8;">Real value backing</td>
+                <td style="padding: 10px; border: 1px solid #ddd; background: #ffebee;">No real value!</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="fix">
+        <h3>✅ Solution Path</h3>
+        <p><strong>For a prestigious project, this needs immediate attention:</strong></p>
+        <ol>
+            <li>🔍 Verify HP contract's USDT address</li>
+            <li>📋 If wrong, redeploy HP contract with correct USDT</li>
+            <li>🔄 Update frontend to use correct USDT contract</li>
+            <li>🧪 Test with real USDT (small amounts first)</li>
+            <li>📢 Communicate to users about the fix</li>
+        </ol>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <script>
+        const REAL_USDT = '0x55d398326f99059fF775485246999027B3197955';
+        const HP_CONTRACT = '0xf99ae6F3234b5E7f247BD12A8a59668Aa479E560';
+        
+        const HP_ABI = [{"inputs":[],"name":"USDT","outputs":[{"internalType":"contract IERC20","name":"","type":"address"}],"stateMutability":"view","type":"function"}];
+        const USDT_ABI = [{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}];
+
+        async function checkContractUSDT() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    alert('MetaMask not found!');
+                    return;
+                }
+
+                const web3 = new Web3(window.ethereum);
+                const accounts = await window.ethereum.request({method: 'eth_requestAccounts'});
+                
+                const hpContract = new web3.eth.Contract(HP_ABI, HP_CONTRACT);
+                const contractUsdtAddress = await hpContract.methods.USDT().call();
+                
+                const resultDiv = document.getElementById('contractUsdtResult');
+                resultDiv.innerHTML = `
+                    <div class="address ${contractUsdtAddress === REAL_USDT ? 'correct' : 'incorrect'}">
+                        <strong>HP Contract's USDT Address:</strong><br>
+                        ${contractUsdtAddress}<br><br>
+                        <strong>Expected Real USDT:</strong><br>
+                        ${REAL_USDT}<br><br>
+                        <strong>Status:</strong> ${contractUsdtAddress === REAL_USDT ? '✅ CORRECT!' : '❌ WRONG - NEEDS FIX!'}
+                    </div>
+                `;
+                
+            } catch (error) {
+                document.getElementById('contractUsdtResult').innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function checkRealUSDT() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    alert('MetaMask not found!');
+                    return;
+                }
+
+                const web3 = new Web3(window.ethereum);
+                const accounts = await window.ethereum.request({method: 'eth_requestAccounts'});
+                const account = accounts[0];
+                
+                const realUsdtContract = new web3.eth.Contract(USDT_ABI, REAL_USDT);
+                const balance = await realUsdtContract.methods.balanceOf(account).call();
+                const decimals = await realUsdtContract.methods.decimals().call();
+                // Fix BigInt conversion
+                const balanceStr = balance.toString();
+                const formattedBalance = parseInt(balanceStr) / Math.pow(10, parseInt(decimals));
+                
+                const resultDiv = document.getElementById('realUsdtResult');
+                resultDiv.innerHTML = `
+                    <div class="address correct">
+                        <strong>Your Real BSC USDT Balance:</strong><br>
+                        ${formattedBalance} USDT<br>
+                        <strong>Decimals:</strong> ${decimals} (Correct)<br>
+                        <strong>Raw Balance:</strong> ${balance}
+                    </div>
+                `;
+                
+            } catch (error) {
+                document.getElementById('realUsdtResult').innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

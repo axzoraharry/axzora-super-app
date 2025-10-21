@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Balance Debugger</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .debug { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007bff; font-family: monospace; }
+        .error { border-left-color: #dc3545; background: #f8d7da; }
+        .success { border-left-color: #28a745; background: #d4edda; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>🔍 USDT Balance Debugger</h1>
+    <button onclick="debugUSDT()">Debug USDT Contract</button>
+    <div id="results"></div>
+
+    <script>
+        const USDT_CONTRACT = '0x55d398326f99059fF775485246999027B3197955';
+        const USDT_ABI = [
+            {"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},
+            {"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"},
+            {"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"type":"function"},
+            {"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"type":"function"}
+        ];
+
+        async function debugUSDT() {
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('MetaMask not found');
+                }
+
+                const web3 = new Web3(window.ethereum);
+                const accounts = await window.ethereum.request({method: 'eth_requestAccounts'});
+                const account = accounts[0];
+
+                resultsDiv.innerHTML = '<div class="debug">Connecting to USDT contract...</div>';
+
+                const usdtContract = new web3.eth.Contract(USDT_ABI, USDT_CONTRACT);
+                
+                // Get contract info
+                const name = await usdtContract.methods.name().call();
+                const symbol = await usdtContract.methods.symbol().call();
+                const decimals = await usdtContract.methods.decimals().call();
+                const balance = await usdtContract.methods.balanceOf(account).call();
+
+                // Convert balance using different decimal assumptions
+                const balanceStr = balance.toString();
+                const balance6Decimals = parseInt(balanceStr) / Math.pow(10, 6);
+                const balance18Decimals = parseInt(balanceStr) / Math.pow(10, 18);
+
+                resultsDiv.innerHTML = `
+                    <div class="success">
+                        <h3>✅ USDT Contract Debug Results</h3>
+                        <strong>Contract Address:</strong> ${USDT_CONTRACT}<br>
+                        <strong>Name:</strong> ${name}<br>
+                        <strong>Symbol:</strong> ${symbol}<br>
+                        <strong>Decimals:</strong> ${decimals}<br>
+                        <strong>Your Account:</strong> ${account}
+                    </div>
+                    
+                    <div class="debug">
+                        <h4>🔍 Balance Analysis</h4>
+                        <strong>Raw Balance:</strong> ${balanceStr}<br>
+                        <strong>With 6 decimals:</strong> ${balance6Decimals} USDT<br>
+                        <strong>With 18 decimals:</strong> ${balance18Decimals} USDT<br>
+                        <strong>Contract Decimals:</strong> ${decimals}
+                    </div>
+
+                    <div class="${parseInt(decimals) === 6 ? 'success' : 'error'}">
+                        <h4>📊 Conclusion</h4>
+                        ${parseInt(decimals) === 6 ? 
+                            `✅ Contract has 6 decimals (correct)<br>Your real balance: ${balance6Decimals} USDT` :
+                            `⚠️ Contract has ${decimals} decimals<br>Your balance: ${parseInt(balanceStr) / Math.pow(10, parseInt(decimals))} USDT`
+                        }
+                    </div>
+
+                    <div class="debug">
+                        <h4>🔧 Frontend Fix Needed</h4>
+                        The frontend should use: <strong>${parseInt(decimals)} decimals</strong><br>
+                        Correct balance calculation: <strong>${parseInt(balanceStr) / Math.pow(10, parseInt(decimals))} USDT</strong>
+                    </div>
+                `;
+
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

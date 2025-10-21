@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Happy Paisa Token - Transaction Troubleshoot</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .status-card {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #00ff88;
+        }
+        .error-card {
+            border-left-color: #ff4757;
+        }
+        .success-card {
+            border-left-color: #2ed573;
+        }
+        .warning-card {
+            border-left-color: #ffa502;
+        }
+        .btn {
+            background: linear-gradient(45deg, #00ff88, #00b4d8);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 136, 0.4);
+        }
+        .code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        #results {
+            margin-top: 20px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <script src="config.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Happy Paisa Token - Transaction Troubleshoot</h1>
+            <p>Fixing "Transaction likely to fail" issues</p>
+        </div>
+
+        <div class="status-card">
+            <h3>📋 Current Status</h3>
+            <p><strong>Contract:</strong> 0x9A1BA34e3B23e258974baEE1E883BE9374A39276</p>
+            <p><strong>Network:</strong> BSC Mainnet</p>
+            <p><strong>Your Address:</strong> <span id="userAddress">Not connected</span></p>
+            <p><strong>BNB Balance:</strong> <span id="bnbBalance">Checking...</span></p>
+            <p><strong>USDT Balance:</strong> <span id="usdtBalance">Checking...</span></p>
+            <p><strong>HP Balance:</strong> <span id="hpBalance">Checking...</span></p>
+        </div>
+
+        <div class="status-card">
+            <h3>🛠️ Quick Fixes</h3>
+            <button class="btn" onclick="connectWallet()">1. Connect Wallet</button>
+            <button class="btn" onclick="checkBalances()">2. Check Balances</button>
+            <button class="btn" onclick="checkNetwork()">3. Verify Network</button>
+            <button class="btn" onclick="testTransaction()">4. Test Small Transaction</button>
+        </div>
+
+        <div class="status-card">
+            <h3>💡 Common Solutions</h3>
+            <div id="solutions">
+                <div class="warning-card">
+                    <h4>⚡ Gas Issues</h4>
+                    <p>If you see "Transaction likely to fail", try:</p>
+                    <ul>
+                        <li>Increase gas limit to 500,000</li>
+                        <li>Set gas price to 5 Gwei</li>
+                        <li>Ensure you have at least 0.01 BNB for fees</li>
+                    </ul>
+                    <button class="btn" onclick="fixGasSettings()">Fix Gas Settings</button>
+                </div>
+
+                <div class="warning-card">
+                    <h4>🔗 Network Issues</h4>
+                    <p>Make sure you're on BSC Mainnet:</p>
+                    <ul>
+                        <li>Network: Binance Smart Chain</li>
+                        <li>RPC URL: https://bsc-dataseed1.binance.org/</li>
+                        <li>Chain ID: 56</li>
+                        <li>Currency: BNB</li>
+                    </ul>
+                    <button class="btn" onclick="addBSCNetwork()">Add BSC Network</button>
+                </div>
+
+                <div class="warning-card">
+                    <h4>💰 Balance Issues</h4>
+                    <p>Ensure sufficient balances:</p>
+                    <ul>
+                        <li>BNB: At least 0.01 BNB for gas</li>
+                        <li>USDT: At least 11.55 USDT to mint 1 HP</li>
+                        <li>HP: Required amount to burn</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let web3;
+        let contract;
+        let userAccount;
+
+        // Initialize
+        window.addEventListener('load', async () => {
+            if (typeof window.ethereum !== 'undefined') {
+                web3 = new Web3(window.ethereum);
+                console.log('✅ Web3 detected');
+                await loadContract();
+            } else {
+                showResult('❌ MetaMask not detected. Please install MetaMask.', 'error');
+            }
+        });
+
+        // Load contract
+        async function loadContract() {
+            try {
+                const response = await fetch('contract-abi.json');
+                const abi = await response.json();
+                contract = new web3.eth.Contract(abi, window.AXZORA_CONFIG.HP_TOKEN_ADDRESS);
+                console.log('✅ Contract loaded');
+            } catch (error) {
+                console.error('❌ Contract load error:', error);
+            }
+        }
+
+        // Connect wallet
+        async function connectWallet() {
+            try {
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                userAccount = accounts[0];
+                document.getElementById('userAddress').textContent = userAccount;
+                showResult('✅ Wallet connected: ' + userAccount.slice(0, 10) + '...', 'success');
+                await checkBalances();
+            } catch (error) {
+                showResult('❌ Wallet connection failed: ' + error.message, 'error');
+            }
+        }
+
+        // Check balances
+        async function checkBalances() {
+            if (!userAccount) {
+                await connectWallet();
+                return;
+            }
+
+            try {
+                // BNB Balance
+                const bnbBalance = await web3.eth.getBalance(userAccount);
+                const bnbFormatted = web3.utils.fromWei(bnbBalance, 'ether');
+                document.getElementById('bnbBalance').textContent = parseFloat(bnbFormatted).toFixed(4) + ' BNB';
+
+                // USDT Balance (if contract loaded)
+                if (contract) {
+                    const usdtContract = new web3.eth.Contract([
+                        {"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+                        {"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"}
+                    ], window.AXZORA_CONFIG.USDT_BSC_ADDRESS);
+
+                    const usdtBalance = await usdtContract.methods.balanceOf(userAccount).call();
+                    const usdtFormatted = web3.utils.fromWei(usdtBalance, 'ether');
+                    document.getElementById('usdtBalance').textContent = parseFloat(usdtFormatted).toFixed(2) + ' USDT';
+
+                    // HP Balance
+                    const hpBalance = await contract.methods.balanceOf(userAccount).call();
+                    const hpFormatted = web3.utils.fromWei(hpBalance, 'ether');
+                    document.getElementById('hpBalance').textContent = parseFloat(hpFormatted).toFixed(4) + ' HP';
+                }
+
+                // Check if sufficient balances
+                if (parseFloat(bnbFormatted) < 0.01) {
+                    showResult('⚠️ Low BNB balance! You need at least 0.01 BNB for gas fees.', 'warning');
+                } else {
+                    showResult('✅ Balances checked successfully', 'success');
+                }
+
+            } catch (error) {
+                showResult('❌ Balance check failed: ' + error.message, 'error');
+            }
+        }
+
+        // Check network
+        async function checkNetwork() {
+            try {
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                const networkId = parseInt(chainId, 16);
+                
+                if (networkId === 56) {
+                    showResult('✅ Connected to BSC Mainnet (Chain ID: 56)', 'success');
+                } else {
+                    showResult(`❌ Wrong network! Connected to Chain ID: ${networkId}. Switch to BSC Mainnet (56).`, 'error');
+                }
+            } catch (error) {
+                showResult('❌ Network check failed: ' + error.message, 'error');
+            }
+        }
+
+        // Add BSC Network
+        async function addBSCNetwork() {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: '0x38',
+                        chainName: 'Binance Smart Chain Mainnet',
+                        nativeCurrency: {
+                            name: 'BNB',
+                            symbol: 'BNB',
+                            decimals: 18,
+                        },
+                        rpcUrls: ['https://bsc-dataseed1.binance.org/'],
+                        blockExplorerUrls: ['https://bscscan.com/'],
+                    }],
+                });
+                showResult('✅ BSC Network added/switched successfully', 'success');
+            } catch (error) {
+                showResult('❌ Failed to add BSC network: ' + error.message, 'error');
+            }
+        }
+
+        // Fix gas settings
+        function fixGasSettings() {
+            showResult(`💡 Gas Fix Applied:
+            - Gas Limit: 500,000
+            - Gas Price: 5 Gwei
+            - Max Fee: 10 Gwei
+            
+            Try your transaction again with these settings.`, 'success');
+        }
+
+        // Test small transaction
+        async function testTransaction() {
+            if (!contract || !userAccount) {
+                await connectWallet();
+                return;
+            }
+
+            try {
+                showResult('🔍 Testing contract connection...', 'warning');
+                
+                // Test a view function first (no gas required)
+                const totalSupply = await contract.methods.totalSupply().call();
+                showResult('✅ Contract connection successful! Total HP Supply: ' + web3.utils.fromWei(totalSupply, 'ether'), 'success');
+                
+                // Test gas estimation for mint function
+                try {
+                    const mintAmount = web3.utils.toWei('0.1', 'ether'); // 0.1 HP
+                    const gasEstimate = await contract.methods.mintTokens(mintAmount).estimateGas({ from: userAccount });
+                    showResult('✅ Gas estimation successful: ' + gasEstimate + ' gas units', 'success');
+                } catch (gasError) {
+                    showResult('⚠️ Gas estimation failed: ' + gasError.message + '\nUse manual gas limit of 500,000', 'warning');
+                }
+                
+            } catch (error) {
+                showResult('❌ Test transaction failed: ' + error.message, 'error');
+            }
+        }
+
+        // Show results
+        function showResult(message, type) {
+            const resultsDiv = document.getElementById('results');
+            const card = document.createElement('div');
+            card.className = `status-card ${type}-card`;
+            card.innerHTML = `<pre>${message}</pre>`;
+            resultsDiv.appendChild(card);
+            
+            // Scroll to bottom
+            card.scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>

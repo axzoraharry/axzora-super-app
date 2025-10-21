@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Axzora BSC Integration Diagnostics</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+        }
+        .test-section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 15px 0;
+            border-left: 4px solid #00D4FF;
+        }
+        .test-result {
+            padding: 10px;
+            border-radius: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .success { background: rgba(0, 184, 148, 0.3); }
+        .error { background: rgba(255, 107, 107, 0.3); }
+        .warning { background: rgba(255, 193, 7, 0.3); }
+        .info { background: rgba(0, 212, 255, 0.3); }
+        button {
+            background: linear-gradient(45deg, #00D4FF, #0095FF);
+            border: none;
+            border-radius: 10px;
+            padding: 15px 25px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 5px;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        .loading {
+            opacity: 0.6;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Axzora BSC Diagnostics</h1>
+        
+        <div class="test-section">
+            <h3>📋 Configuration Check</h3>
+            <div id="configResults"></div>
+            <button onclick="checkConfiguration()">Check Config</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔗 MetaMask Connection</h3>
+            <div id="metamaskResults"></div>
+            <button onclick="checkMetaMask()">Check MetaMask</button>
+            <button onclick="connectWallet()">Connect Wallet</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>🌐 Network Check</h3>
+            <div id="networkResults"></div>
+            <button onclick="checkNetwork()">Check Network</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>📊 Contract Data</h3>
+            <div id="contractResults"></div>
+            <button onclick="checkContract()">Check Contract</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔑 BSCScan API</h3>
+            <div id="apiResults"></div>
+            <button onclick="checkAPI()">Test API</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>💰 Live Data Test</h3>
+            <div id="dataResults"></div>
+            <button onclick="testLiveData()">Test Live Data</button>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        let web3, account, contract;
+
+        function addResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong> - ${message}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function checkConfiguration() {
+            const container = document.getElementById('configResults');
+            container.innerHTML = '';
+            
+            addResult('configResults', '🔧 Checking configuration...', 'info');
+            
+            if (typeof window.AXZORA_CONFIG !== 'undefined') {
+                addResult('configResults', '✅ Config file loaded successfully', 'success');
+                addResult('configResults', `📍 HP Token: ${AXZORA_CONFIG.HP_TOKEN_ADDRESS}`, 'info');
+                addResult('configResults', `📍 USDT Token: ${AXZORA_CONFIG.USDT_BSC_ADDRESS}`, 'info');
+                
+                if (AXZORA_CONFIG.BSC_API_KEY === 'YourBSCScanAPIKeyHere') {
+                    addResult('configResults', '⚠️ BSCScan API key not configured', 'warning');
+                    addResult('configResults', '📝 Get free key at: https://bscscan.com/apis', 'info');
+                } else {
+                    addResult('configResults', '✅ BSCScan API key configured', 'success');
+                }
+            } else {
+                addResult('configResults', '❌ Config file not loaded', 'error');
+            }
+        }
+
+        async function checkMetaMask() {
+            const container = document.getElementById('metamaskResults');
+            container.innerHTML = '';
+            
+            addResult('metamaskResults', '🦊 Checking MetaMask...', 'info');
+            
+            if (typeof window.ethereum !== 'undefined') {
+                addResult('metamaskResults', '✅ MetaMask detected', 'success');
+                
+                try {
+                    web3 = new Web3(window.ethereum);
+                    addResult('metamaskResults', '✅ Web3 initialized', 'success');
+                } catch (error) {
+                    addResult('metamaskResults', `❌ Web3 error: ${error.message}`, 'error');
+                }
+            } else {
+                addResult('metamaskResults', '❌ MetaMask not found', 'error');
+                addResult('metamaskResults', '📝 Install MetaMask extension', 'info');
+            }
+        }
+
+        async function connectWallet() {
+            const container = document.getElementById('metamaskResults');
+            
+            try {
+                addResult('metamaskResults', '🔗 Requesting wallet connection...', 'info');
+                
+                const accounts = await window.ethereum.request({
+                    method: 'eth_requestAccounts'
+                });
+                
+                if (accounts.length > 0) {
+                    account = accounts[0];
+                    addResult('metamaskResults', `✅ Connected: ${account}`, 'success');
+                } else {
+                    addResult('metamaskResults', '❌ No accounts found', 'error');
+                }
+            } catch (error) {
+                addResult('metamaskResults', `❌ Connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkNetwork() {
+            const container = document.getElementById('networkResults');
+            container.innerHTML = '';
+            
+            if (!web3) {
+                addResult('networkResults', '❌ Web3 not initialized', 'error');
+                return;
+            }
+            
+            try {
+                addResult('networkResults', '🌐 Checking network...', 'info');
+                
+                const chainId = await web3.eth.getChainId();
+                addResult('networkResults', `📍 Current Chain ID: ${chainId}`, 'info');
+                
+                if (chainId === 56) {
+                    addResult('networkResults', '✅ Connected to BSC Mainnet', 'success');
+                } else {
+                    addResult('networkResults', '⚠️ Not on BSC Mainnet (Chain ID: 56)', 'warning');
+                    addResult('networkResults', '📝 Switch to BSC in MetaMask', 'info');
+                }
+                
+                // Test BNB balance
+                if (account) {
+                    const balance = await web3.eth.getBalance(account);
+                    const bnbBalance = web3.utils.fromWei(balance, 'ether');
+                    addResult('networkResults', `💰 BNB Balance: ${parseFloat(bnbBalance).toFixed(4)} BNB`, 'info');
+                }
+                
+            } catch (error) {
+                addResult('networkResults', `❌ Network error: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkContract() {
+            const container = document.getElementById('contractResults');
+            container.innerHTML = '';
+            
+            if (!web3 || !account) {
+                addResult('contractResults', '❌ Web3 or account not available', 'error');
+                return;
+            }
+            
+            try {
+                addResult('contractResults', '📋 Checking HP token contract...', 'info');
+                
+                const contractABI = [
+                    "function name() view returns (string)",
+                    "function symbol() view returns (string)",
+                    "function totalSupply() view returns (uint256)",
+                    "function balanceOf(address) view returns (uint256)"
+                ];
+                
+                contract = new web3.eth.Contract(
+                    contractABI.map(sig => web3.eth.abi.encodeFunctionSignature(sig)),
+                    AXZORA_CONFIG.HP_TOKEN_ADDRESS
+                );
+                
+                // Test basic contract calls
+                const totalSupply = await contract.methods.totalSupply().call();
+                const supply = web3.utils.fromWei(totalSupply, 'ether');
+                addResult('contractResults', `📊 Total Supply: ${parseFloat(supply).toFixed(2)} HP`, 'success');
+                
+                const balance = await contract.methods.balanceOf(account).call();
+                const hpBalance = web3.utils.fromWei(balance, 'ether');
+                addResult('contractResults', `💰 Your HP Balance: ${parseFloat(hpBalance).toFixed(2)} HP`, 'success');
+                
+                addResult('contractResults', '✅ Contract is working correctly', 'success');
+                
+            } catch (error) {
+                addResult('contractResults', `❌ Contract error: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkAPI() {
+            const container = document.getElementById('apiResults');
+            container.innerHTML = '';
+            
+            try {
+                addResult('apiResults', '🔑 Testing BSCScan API...', 'info');
+                
+                if (AXZORA_CONFIG.BSC_API_KEY === 'YourBSCScanAPIKeyHere') {
+                    addResult('apiResults', '⚠️ API key not configured', 'warning');
+                    return;
+                }
+                
+                // Test BSCScan API
+                const response = await fetch(
+                    `https://api.bscscan.com/api?module=stats&action=bnbprice&apikey=${AXZORA_CONFIG.BSC_API_KEY}`
+                );
+                const data = await response.json();
+                
+                if (data.status === '1') {
+                    addResult('apiResults', '✅ BSCScan API working', 'success');
+                    addResult('apiResults', `💰 BNB Price: $${data.result.ethusd}`, 'info');
+                } else {
+                    addResult('apiResults', `❌ API Error: ${data.message}`, 'error');
+                }
+                
+                // Test CoinGecko API
+                const cgResponse = await fetch(
+                    'https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd'
+                );
+                const cgData = await cgResponse.json();
+                
+                if (cgData.binancecoin) {
+                    addResult('apiResults', '✅ CoinGecko API working', 'success');
+                    addResult('apiResults', `💰 BNB Price (CG): $${cgData.binancecoin.usd}`, 'info');
+                }
+                
+            } catch (error) {
+                addResult('apiResults', `❌ API test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLiveData() {
+            const container = document.getElementById('dataResults');
+            container.innerHTML = '';
+            
+            if (!web3 || !account) {
+                addResult('dataResults', '❌ Wallet not connected', 'error');
+                return;
+            }
+            
+            try {
+                addResult('dataResults', '📊 Loading live data...', 'info');
+                
+                // Load contract data
+                const contractABI = [
+                    "function totalSupply() view returns (uint256)",
+                    "function balanceOf(address) view returns (uint256)",
+                    "function getCollateralRatio() view returns (uint256)"
+                ];
+                
+                const hpContract = new web3.eth.Contract(
+                    contractABI,
+                    AXZORA_CONFIG.HP_TOKEN_ADDRESS
+                );
+                
+                const usdtContract = new web3.eth.Contract(
+                    ["function balanceOf(address) view returns (uint256)"],
+                    AXZORA_CONFIG.USDT_BSC_ADDRESS
+                );
+                
+                // Get balances
+                const hpBalance = await hpContract.methods.balanceOf(account).call();
+                const usdtBalance = await usdtContract.methods.balanceOf(account).call();
+                const bnbBalance = await web3.eth.getBalance(account);
+                
+                addResult('dataResults', `💰 HP: ${web3.utils.fromWei(hpBalance, 'ether')} HP`, 'success');
+                addResult('dataResults', `💵 USDT: ${web3.utils.fromWei(usdtBalance, 'ether')} USDT`, 'success');
+                addResult('dataResults', `🔶 BNB: ${web3.utils.fromWei(bnbBalance, 'ether')} BNB`, 'success');
+                
+                // Get market data
+                const totalSupply = await hpContract.methods.totalSupply().call();
+                const collateralRatio = await hpContract.methods.getCollateralRatio().call();
+                
+                addResult('dataResults', `📊 Total Supply: ${web3.utils.fromWei(totalSupply, 'ether')} HP`, 'info');
+                addResult('dataResults', `📈 Collateral Ratio: ${collateralRatio}%`, 'info');
+                
+                addResult('dataResults', '✅ All live data loaded successfully!', 'success');
+                
+            } catch (error) {
+                addResult('dataResults', `❌ Live data error: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-check configuration on load
+        window.addEventListener('load', () => {
+            setTimeout(checkConfiguration, 500);
+        });
+    </script>
+</body>
+</html>

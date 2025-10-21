@@ -1,0 +1,32 @@
+{
+  "name": "axzora-super-app",
+  "version": "1.0.0",
+  "description": "Axzora Super App - Complete HP Token DApp with Frontend and Smart Contracts",
+  "scripts": {
+    "start": "cd frontend && python -m http.server 8000",
+    "start:backend": "cd backend && npx hardhat node",
+    "compile": "cd backend && npx hardhat compile",
+    "test": "cd backend && npx hardhat test",
+    "deploy": "cd backend && npx hardhat run scripts/deploy-and-setup.ts --network bsc",
+    "deploy:testnet": "cd backend && npx hardhat run scripts/deploy-and-setup.ts --network bscTestnet"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/axzoraharry/axzora-super-app.git"
+  },
+  "keywords": [
+    "hp-token",
+    "defi",
+    "bsc",
+    "stablecoin",
+    "staking",
+    "web3",
+    "dapp"
+  ],
+  "author": "Harry (Axzora)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/axzoraharry/axzora-super-app/issues"
+  },
+  "homepage": "https://github.com/axzoraharry/axzora-super-app#readme"
+}
