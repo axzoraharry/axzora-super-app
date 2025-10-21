@@ -3,1009 +3,324 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Axzora Super App - Advanced AI Interface</title>
-    <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@0.0.3"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-detection@1.0.2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <title>Axzora Super App - AI Assistant</title>
+    <link rel="stylesheet" href="home-assistant-styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="gas-fix.js"></script>
 </head>
 <body>
-    <!-- Loading Screen with 3D Animation -->
-    <div id="loadingScreen" class="loading-screen">
-        <div class="loading-container">
-            <div class="logo-3d">
-                <div class="axzora-logo">
-                    <span class="letter">A</span>
-                    <span class="letter">X</span>
-                    <span class="letter">Z</span>
-                    <span class="letter">O</span>
-                    <span class="letter">R</span>
-                    <span class="letter">A</span>
+    <!-- Permission Request Screen -->
+    <div id="permissionScreen" class="permission-screen">
+        <div class="permission-container">
+            <div class="app-logo">
+                <div class="logo-icon">🏠</div>
+                <h1>Axzora Home Assistant</h1>
+                <p>Your Smart Crypto Companion</p>
+            </div>
+            
+            <div class="permissions-list">
+                <div class="permission-item" id="locationPermission">
+                    <div class="permission-icon">📍</div>
+                    <div class="permission-content">
+                        <h3>Location Access</h3>
+                        <p>For personalized services and security</p>
+                    </div>
+                    <button class="permission-btn" onclick="requestLocation()">Allow</button>
+                </div>
+                
+                <div class="permission-item" id="fingerprintPermission">
+                    <div class="permission-icon">👆</div>
+                    <div class="permission-content">
+                        <h3>Biometric Authentication</h3>
+                        <p>Secure access with fingerprint</p>
+                    </div>
+                    <button class="permission-btn" onclick="requestFingerprint()">Enable</button>
+                </div>
+                
+                <div class="permission-item" id="cameraPermission">
+                    <div class="permission-icon">📷</div>
+                    <div class="permission-content">
+                        <h3>Camera Access</h3>
+                        <p>For face recognition and QR scanning</p>
+                    </div>
+                    <button class="permission-btn" onclick="requestCamera()">Allow</button>
                 </div>
             </div>
-            <div class="loading-text">
-                <p>Initializing Biometric Systems...</p>
-                <div class="loading-bar">
-                    <div class="loading-progress"></div>
-                </div>
-            </div>
+            
+            <button id="continueBtn" class="continue-btn" onclick="enterApp()" disabled>
+                Continue to App
+            </button>
         </div>
     </div>
 
-    <!-- Main Application Container -->
-    <div id="app" class="app-container">
-        
-        <!-- Header with Real-time Status -->
-        <header class="main-header">
+    <!-- Main App Container -->
+    <div id="mainApp" class="main-app" style="display: none;">
+        <!-- Header -->
+        <header class="app-header">
             <div class="header-left">
-                <div class="logo">
-                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iMTAiIGZpbGw9IiMwMEZGRkYiLz4KPHN2ZyBjbGFzcz0ibG9nb19fc3ZnX18ydDV6eCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHg9IjgiIHk9IjgiPgo8cGF0aCBkPSJNMTIgMkMxNy41MjI4IDIgMjIgNi40NzcxNSAyMiAxMkMyMiAxNy41MjI4IDE3LjUyMjggMjIgMTIgMjJDNi40NzcxNSAyMiAyIDE3LjUyMjggMiAxMkMyIDYuNDc3MTUgNi40NzcxNSAyIDEyIDJaIiBzdHJva2U9IiMxMTExMTEiIHN0cm9rZS13aWR0aD0iMiIvPgo8L3N2Zz4KPC9zdmc+" alt="Axzora">
-                    <span class="brand-name">Axzora Super App</span>
+                <div class="app-title">
+                    <span class="title-icon">🏠</span>
+                    <span class="title-text">Axzora Assistant</span>
                 </div>
             </div>
             
             <div class="header-center">
                 <div class="status-indicators">
-                    <div class="status-item" id="biometricStatus">
-                        <div class="status-dot inactive"></div>
-                        <span>Biometric</span>
-                    </div>
-                    <div class="status-item" id="voiceStatus">
-                        <div class="status-dot inactive"></div>
-                        <span>Voice</span>
-                    </div>
-                    <div class="status-item" id="blockchainStatus">
-                        <div class="status-dot inactive"></div>
-                        <span>Blockchain</span>
-                    </div>
-                    <div class="status-item" id="aiStatus">
-                        <div class="status-dot active"></div>
-                        <span>Mr. Happy AI</span>
-                    </div>
+                    <div class="status-dot active" title="Mr. Happy Online"></div>
+                    <div class="status-dot" id="walletStatus" title="Wallet Status"></div>
+                    <div class="status-dot" id="securityStatus" title="Security Status"></div>
                 </div>
             </div>
-
+            
             <div class="header-right">
-                <div class="user-profile" id="userProfile">
-                    <div class="avatar">
-                        <canvas id="faceCanvas" width="40" height="40"></canvas>
-                    </div>
-                    <div class="user-info">
-                        <span class="user-name" id="userName">Identifying...</span>
-                        <span class="user-status" id="userStatus">Scanning biometrics</span>
-                    </div>
-                </div>
+                <button class="menu-btn" onclick="toggleSidebar()">☰</button>
             </div>
         </header>
 
-        <!-- Main Content Area -->
-        <main class="main-content">
-            
-            <!-- Left Sidebar - Biometric Monitoring -->
-            <aside class="left-sidebar">
-                <div class="biometric-panel">
-                    <h3>🔒 Real-time Biometric Monitor</h3>
-                    
-                    <!-- Face Detection Display -->
-                    <div class="face-monitor">
-                        <video id="video" autoplay muted playsinline></video>
-                        <canvas id="faceOverlay"></canvas>
-                        <div class="face-metrics">
-                            <div class="metric">
-                                <span class="label">Face Confidence:</span>
-                                <span class="value" id="faceConfidence">0%</span>
-                            </div>
-                            <div class="metric">
-                                <span class="label">Eye Movement:</span>
-                                <span class="value" id="eyeTracking">Tracking</span>
-                            </div>
-                            <div class="metric">
-                                <span class="label">Blink Rate:</span>
-                                <span class="value" id="blinkRate">0/min</span>
-                            </div>
-                            <div class="metric">
-                                <span class="label">Expression:</span>
-                                <span class="value" id="expression">Neutral</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Voice Visualization -->
-                    <div class="voice-monitor">
-                        <h4>🎤 Voice Activity</h4>
-                        <canvas id="voiceVisualizer" width="200" height="100"></canvas>
-                        <div class="voice-controls">
-                            <button id="startVoice" class="voice-btn">Start Listening</button>
-                            <button id="stopVoice" class="voice-btn">Stop</button>
-                        </div>
-                        <div class="voice-status">
-                            <span id="voiceText">Say "Hey Happy" to activate</span>
-                        </div>
-                    </div>
-
-                    <!-- Security Level -->
-                    <div class="security-level">
-                        <h4>🛡️ Security Level</h4>
-                        <div class="security-meter">
-                            <div class="security-bar">
-                                <div class="security-fill" id="securityFill"></div>
-                            </div>
-                            <span class="security-text" id="securityText">High (87%)</span>
-                        </div>
-                    </div>
-                </div>
-            </aside>
-
-            <!-- Center Content - Mr. Happy AI Avatar -->
-            <section class="center-content">
-                
-                <!-- AI Avatar Container -->
-                <div class="ai-avatar-container">
+        <!-- Main Content Grid -->
+        <main class="app-main">
+            <!-- Mr. Happy Assistant -->
+            <section class="assistant-section">
+                <div class="mr-happy-container">
                     <div class="avatar-frame">
-                        <div class="avatar-3d" id="mrHappyAvatar">
+                        <div class="mr-happy-avatar" id="mrHappyAvatar">
                             <div class="face">
                                 <div class="eyes">
-                                    <div class="eye left-eye" id="leftEye">
+                                    <div class="eye left-eye">
                                         <div class="eyeball"></div>
-                                        <div class="eyelid top"></div>
-                                        <div class="eyelid bottom"></div>
                                     </div>
-                                    <div class="eye right-eye" id="rightEye">
+                                    <div class="eye right-eye">
                                         <div class="eyeball"></div>
-                                        <div class="eyelid top"></div>
-                                        <div class="eyelid bottom"></div>
                                     </div>
                                 </div>
-                                <div class="mouth" id="avatarMouth">
-                                    <div class="lip top-lip"></div>
-                                    <div class="lip bottom-lip"></div>
-                                </div>
-                                <div class="expression-overlay" id="expressionOverlay"></div>
+                                <div class="mouth" id="avatarMouth"></div>
                             </div>
                         </div>
-                        
-                        <!-- Voice Ripples -->
-                        <div class="voice-ripples" id="voiceRipples">
-                            <div class="ripple"></div>
-                            <div class="ripple"></div>
-                            <div class="ripple"></div>
-                        </div>
-                    </div>
-
-                    <!-- AI Status Display -->
-                    <div class="ai-status">
-                        <div class="ai-thinking" id="aiThinking">
-                            <div class="thinking-dots">
-                                <span></span>
-                                <span></span>
-                                <span></span>
-                            </div>
-                        </div>
-                        <div class="ai-response" id="aiResponse">
-                            <p>Hello! I'm Mr. Happy. I can see you clearly and I'm ready to help with your Happy Paisa tokens!</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Voice Command Interface -->
-                <div class="command-interface">
-                    <div class="command-input">
-                        <div class="mic-button" id="micButton">
-                            <div class="mic-icon">🎤</div>
-                            <div class="pulse-ring"></div>
-                        </div>
-                        <div class="voice-waveform" id="waveform"></div>
+                        <div class="pulse-ring" id="pulseRing"></div>
                     </div>
                     
-                    <div class="suggested-commands">
-                        <h4>💡 Try saying:</h4>
-                        <div class="command-suggestions">
-                            <button class="command-chip" data-command="mint hp tokens">💰 Mint HP Tokens</button>
-                            <button class="command-chip" data-command="check balance">📊 Check Balance</button>
-                            <button class="command-chip" data-command="send money">💸 Send Money</button>
-                            <button class="command-chip" data-command="system status">⚙️ System Status</button>
-                        </div>
+                    <div class="assistant-status">
+                        <h2>Hello! I'm Mr. Happy</h2>
+                        <p id="assistantMessage">Ready to help with your Happy Paisa tokens!</p>
+                    </div>
+                    
+                    <div class="voice-interface">
+                        <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()">
+                            <span class="voice-icon">🎤</span>
+                            <span class="voice-text">Talk to Mr. Happy</span>
+                        </button>
                     </div>
                 </div>
-
             </section>
 
-            <!-- Right Sidebar - Trading Dashboard -->
-            <aside class="right-sidebar">
-                
-                <!-- HP Token Dashboard -->
-                <div class="trading-panel">
-                    <h3>💰 Happy Paisa Dashboard</h3>
-                    
-                    <div class="balance-cards">
-                        <div class="balance-card hp-card">
-                            <div class="card-header">
-                                <span class="token-symbol">HP</span>
-                                <span class="token-name">Happy Paisa</span>
-                            </div>
-                            <div class="card-balance">
-                                <span class="amount" id="hpBalance">0.00</span>
-                                <span class="currency">HP</span>
-                            </div>
-                            <div class="card-value">
-                                <span class="inr-value" id="hpValue">₹0</span>
-                                <span class="change stable">Stable</span>
-                            </div>
-                        </div>
-
-                        <div class="balance-card usdt-card">
-                            <div class="card-header">
-                                <span class="token-symbol">USDT</span>
-                                <span class="token-name">Tether USD</span>
-                            </div>
-                            <div class="card-balance">
-                                <span class="amount" id="usdtBalance">0.00</span>
-                                <span class="currency">USDT</span>
-                            </div>
-                            <div class="card-value">
-                                <span class="inr-value" id="usdtValue">₹0</span>
-                                <span class="change stable">Stable</span>
-                            </div>
-                        </div>
-
-                        <div class="balance-card bnb-card">
-                            <div class="card-header">
-                                <span class="token-symbol">BNB</span>
-                                <span class="token-name">Binance Coin</span>
-                            </div>
-                            <div class="card-balance">
-                                <span class="amount" id="bnbBalance">0.00</span>
-                                <span class="currency">BNB</span>
-                            </div>
-                            <div class="card-value">
-                                <span class="inr-value" id="bnbValue">₹0</span>
-                                <span class="change stable">Stable</span>
-                            </div>
-                        </div>
+            <!-- Quick Actions Grid -->
+            <section class="actions-grid">
+                <div class="action-card" onclick="connectWallet()">
+                    <div class="card-icon">💳</div>
+                    <div class="card-content">
+                        <h3>Connect Wallet</h3>
+                        <p>Link your crypto wallet</p>
                     </div>
-
-                    <!-- Wallet Connection -->
-                    <div class="wallet-connection">
-                        <button id="connectWallet" class="connect-wallet-btn">
-                            <span class="btn-icon">🔗</span>
-                            <span class="btn-text">Connect Wallet</span>
-                        </button>
-                        <button id="helpMenuBtn" class="help-menu-btn" title="Help & Tutorial">
-                            <span class="btn-icon">❓</span>
-                            <span class="btn-text">Help</span>
-                        </button>
-                        <div id="walletInfo" class="wallet-info" style="display: none;">
-                            <div class="wallet-security-indicator">
-                                <div class="security-status" id="securityStatus">
-                                    <span class="security-dot active"></span>
-                                    <span class="security-text">Secure</span>
-                                </div>
-                                <p id="walletAddress">Not connected</p>
-                                <div class="account-verification" id="accountVerification">
-                                    <span class="verification-icon">✔️</span>
-                                    <span class="verification-text">Account Verified</span>
-                                </div>
-                            </div>
-                            <div class="wallet-actions">
-                                <button id="disconnectWallet" class="disconnect-btn">Disconnect</button>
-                                <button id="verifyAccount" class="verify-btn">Verify Account</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Actions -->
-                    <div class="quick-actions">
-                        <button class="action-btn mint-btn" data-action="mint" disabled>
-                            <span class="btn-icon">🪙</span>
-                            <span class="btn-text">Mint HP</span>
-                        </button>
-                        <button class="action-btn burn-btn" data-action="burn" disabled>
-                            <span class="btn-icon">🔥</span>
-                            <span class="btn-text">Burn HP</span>
-                        </button>
-                        <button class="action-btn transfer-btn" data-action="transfer" disabled>
-                            <span class="btn-icon">📤</span>
-                            <span class="btn-text">Transfer</span>
-                        </button>
-                        <button class="action-btn upi-btn" data-action="upi" disabled>
-                            <span class="btn-icon">💳</span>
-                            <span class="btn-text">UPI Pay</span>
-                        </button>
-                        <button class="action-btn stake-btn" data-action="stake" disabled>
-                            <span class="btn-icon">🔒</span>
-                            <div class="btn-content">
-                                <span class="btn-text">Stake HP</span>
-                                <span class="btn-subtext" id="stakeAvailableAmount">Loading...</span>
-                            </div>
-                        </button>
-                    </div>
-
-                    <!-- Owner Management Panel (Only visible to contract owner) -->
-                    <div class="owner-management" id="ownerPanel" style="display: none;">
-                        <h4>🔑 Owner Functions</h4>
-                        <div class="owner-actions">
-                            <button class="action-btn profit-btn" id="withdrawProfitsBtn">
-                                <span class="btn-icon">💰</span>
-                                <span class="btn-text">Withdraw Profits</span>
-                            </button>
-                            <button class="action-btn emergency-btn" id="emergencyWithdrawBtn">
-                                <span class="btn-icon">🆘</span>
-                                <span class="btn-text">Emergency Withdraw</span>
-                            </button>
-                            <button class="action-btn collateral-btn" id="checkCollateralBtn">
-                                <span class="btn-icon">📊</span>
-                                <span class="btn-text">Check Collateral</span>
-                            </button>
-                            <button class="action-btn pause-btn" id="pauseContractBtn">
-                                <span class="btn-icon">⏸️</span>
-                                <span class="btn-text">Pause Contract</span>
-                            </button>
-                            <button class="action-btn resume-btn" id="resumeContractBtn">
-                                <span class="btn-icon">▶️</span>
-                                <span class="btn-text">Resume Contract</span>
-                            </button>
-                        </div>
-                        
-                        <!-- Owner Status Display -->
-                        <div class="owner-status" id="ownerStatus">
-                            <div class="status-item">
-                                <span class="status-label">Available Profits:</span>
-                                <span class="status-value" id="availableProfits">Loading...</span>
-                            </div>
-                            <div class="status-item">
-                                <span class="status-label">Total Collateral:</span>
-                                <span class="status-value" id="totalCollateral">Loading...</span>
-                            </div>
-                            <div class="status-item">
-                                <span class="status-label">Contract Status:</span>
-                                <span class="status-value" id="contractStatus">Active</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Staking Overview -->
-                    <div class="staking-overview">
-                        <h4>🔒 Staking Overview</h4>
-                        <div class="staking-stats">
-                            <div class="staking-stat">
-                                <span class="stat-label">Total Staked</span>
-                                <span class="stat-value" id="totalStakedHP">0.00 HP</span>
-                                <span class="stat-usd" id="totalStakedUSD">($0.00)</span>
-                            </div>
-                            <div class="staking-stat">
-                                <span class="stat-label">Pending Rewards</span>
-                                <span class="stat-value" id="pendingRewards">0.00 HP</span>
-                                <span class="stat-usd" id="pendingRewardsUSD">($0.00)</span>
-                            </div>
-                            <div class="staking-stat">
-                                <span class="stat-label">Next Unlock</span>
-                                <span class="stat-value" id="nextUnlock">None</span>
-                            </div>
-                        </div>
-                        
-                        <div class="staking-actions">
-                            <button class="stake-quick-btn" onclick="openStakingModal()" disabled>
-                                <span class="btn-icon">🔒</span>
-                                <div class="btn-content-small">
-                                    <span class="btn-text">Stake Tokens</span>
-                                    <span class="btn-subtext-small" id="sidebarStakeAmount">Max: Loading...</span>
-                                </div>
-                            </button>
-                            <button class="unstake-quick-btn" onclick="showUnstakeOptions()" disabled>
-                                <span class="btn-icon">🔓</span>
-                                <span class="btn-text">Unstake</span>
-                            </button>
-                        </div>
-                        
-                        <div class="staking-apr">
-                            <div class="apr-display">
-                                <span class="apr-label">Current APR:</span>
-                                <span class="apr-value">6%</span>
-                            </div>
-                            <div class="apr-details">
-                                <small>30-day lock period • Max $1000 stake</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Recent Transactions -->
-                    <div class="recent-transactions">
-                        <h4>📝 Recent Transactions</h4>
-                        <div class="transaction-list" id="transactionsList">
-                            <div class="no-transactions">
-                                <p>Connect wallet to view transactions</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Market Data -->
-                    <div class="market-data">
-                        <h4>📈 Market Overview</h4>
-                        <div class="market-stats">
-                            <div class="stat">
-                                <span class="stat-label">HP Price</span>
-                                <span class="stat-value" id="hpPrice">$0.00</span>
-                                <span class="price-change stable" id="priceChange">+0.00%</span>
-                            </div>
-                            <div class="stat">
-                                <span class="stat-label">Market Cap</span>
-                                <span class="stat-value" id="marketCap">$0</span>
-                            </div>
-                            <div class="stat">
-                                <span class="stat-label">24h Volume</span>
-                                <span class="stat-value" id="volume24h">$0</span>
-                            </div>
-                            <div class="stat">
-                                <span class="stat-label">Total Supply</span>
-                                <span class="stat-value" id="totalSupply">0 HP</span>
-                            </div>
-                            <div class="stat">
-                                <span class="stat-label">Holders</span>
-                                <span class="stat-value" id="holders">0</span>
-                            </div>
-                            <div class="stat">
-                                <span class="stat-label">Collateral Ratio</span>
-                                <span class="stat-value" id="collateralRatio">Loading...</span>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="card-status" id="walletCardStatus">●</div>
                 </div>
-
-            </aside>
-
+                
+                <div class="action-card" onclick="openMintModal()" id="mintCard">
+                    <div class="card-icon">🪙</div>
+                    <div class="card-content">
+                        <h3>Mint HP</h3>
+                        <p>Create new tokens</p>
+                    </div>
+                    <div class="card-status">●</div>
+                </div>
+                
+                <div class="action-card" onclick="openBurnModal()" id="burnCard">
+                    <div class="card-icon">🔥</div>
+                    <div class="card-content">
+                        <h3>Burn HP</h3>
+                        <p>Exchange tokens for USDT</p>
+                    </div>
+                    <div class="card-status">●</div>
+                </div>
+                
+                <div class="action-card" onclick="openTransferModal()" id="transferCard">
+                    <div class="card-icon">📤</div>
+                    <div class="card-content">
+                        <h3>Transfer</h3>
+                        <p>Send HP tokens</p>
+                    </div>
+                    <div class="card-status">●</div>
+                </div>
+                
+                <div class="action-card" onclick="openStakingModal()" id="stakeCard">
+                    <div class="card-icon">🔒</div>
+                    <div class="card-content">
+                        <h3>Stake HP</h3>
+                        <p>Earn 6% APR</p>
+                    </div>
+                    <div class="card-status">●</div>
+                </div>
+                
+                <div class="action-card" onclick="showHelp()">
+                    <div class="card-icon">❓</div>
+                    <div class="card-content">
+                        <h3>Help</h3>
+                        <p>Get assistance</p>
+                    </div>
+                    <div class="card-status">●</div>
+                </div>
+            </section>
         </main>
 
-        <!-- Transaction Modal -->
-        <div id="transactionModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2 id="modalTitle">Transaction Details</h2>
-                    <button class="close-btn" id="closeModal">&times;</button>
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>Dashboard</h3>
+                <button class="close-sidebar" onclick="toggleSidebar()">×</button>
+            </div>
+            
+            <div class="balance-overview">
+                <div class="balance-card">
+                    <div class="balance-label">HP Balance</div>
+                    <div class="balance-amount" id="hpBalance">0.00</div>
+                    <div class="balance-value" id="hpValue">$0.00</div>
                 </div>
-                <div class="modal-body" id="modalBody">
-                    <!-- Transaction form will be dynamically inserted here -->
+                
+                <div class="balance-card">
+                    <div class="balance-label">USDT Balance</div>
+                    <div class="balance-amount" id="usdtBalance">0.00</div>
+                    <div class="balance-value" id="usdtValue">$0.00</div>
+                </div>
+                
+                <div class="balance-card">
+                    <div class="balance-label">BNB Balance</div>
+                    <div class="balance-amount" id="bnbBalance">0.00</div>
+                    <div class="balance-value" id="bnbValue">$0.00</div>
                 </div>
             </div>
-        </div>
-
-        <!-- Mint HP Modal -->
-        <div id="mintModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>🏭 Mint HP Tokens</h2>
-                    <button class="close-btn" onclick="closeMintModal()">&times;</button>
+            
+            <div class="recent-activity">
+                <h4>Recent Activity</h4>
+                <div class="activity-list" id="activityList">
+                    <div class="no-activity">Connect wallet to see activity</div>
                 </div>
-                <div class="modal-body">
-                    <div class="mint-form">
-                        <div class="balance-info">
-                            <div class="balance-item">
-                                <span class="label">Your USDT Balance:</span>
-                                <span class="value" id="mintUsdtBalance">0.00 USDT</span>
-                            </div>
-                            <div class="balance-item">
-                                <span class="label">HP Price:</span>
-                                <span class="value">11.00 USDT per HP</span>
-                            </div>
-                        </div>
-                        
-                        <div class="input-group">
-                            <label for="hpAmount">HP Amount to Mint:</label>
-                            <div class="input-with-max">
-                                <input type="number" id="hpAmount" placeholder="1.0" step="0.01" min="0.01">
-                                <button class="max-btn" onclick="setMaxHP()">MAX</button>
-                            </div>
-                            <div class="conversion-info">
-                                <span id="usdtRequired">Required: 11.00 USDT</span>
-                            </div>
-                        </div>
-                        
-                        <div class="action-buttons">
-                            <button class="btn btn-primary" id="mintButton" onclick="executeAutoMint()">
-                                <span class="btn-icon">🏭</span>
-                                <span class="btn-text">Auto Mint HP</span>
-                            </button>
-                            <button class="btn btn-secondary" onclick="closeMintModal()">
-                                Cancel
-                            </button>
-                        </div>
-                        
-                        <div class="process-steps" id="mintSteps" style="display: none;">
-                            <div class="step" id="step1">
-                                <span class="step-icon">⏳</span>
-                                <span class="step-text">1. Checking USDT allowance...</span>
-                            </div>
-                            <div class="step" id="step2">
-                                <span class="step-icon">⏳</span>
-                                <span class="step-text">2. Approving USDT (if needed)...</span>
-                            </div>
-                            <div class="step" id="step3">
-                                <span class="step-icon">⏳</span>
-                                <span class="step-text">3. Minting HP tokens...</span>
-                            </div>
-                        </div>
+            </div>
+            
+            <div class="security-info">
+                <h4>Security Status</h4>
+                <div class="security-items">
+                    <div class="security-item">
+                        <span class="security-icon">📍</span>
+                        <span class="security-text" id="locationStatus">Location: Enabled</span>
+                    </div>
+                    <div class="security-item">
+                        <span class="security-icon">👆</span>
+                        <span class="security-text" id="biometricStatus">Biometric: Active</span>
+                    </div>
+                    <div class="security-item">
+                        <span class="security-icon">🔒</span>
+                        <span class="security-text" id="encryptionStatus">Encryption: Strong</span>
                     </div>
                 </div>
             </div>
-        </div>
-
-        <!-- Burn HP Modal -->
-        <div id="burnModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>🔥 Burn HP Tokens</h2>
-                    <button class="close-btn" onclick="closeBurnModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="burn-form">
-                        <div class="balance-info">
-                            <div class="balance-item">
-                                <span class="label">Your HP Balance:</span>
-                                <span class="value" id="burnHpBalance">0.00 HP</span>
-                            </div>
-                            <div class="balance-item">
-                                <span class="label">HP Price:</span>
-                                <span class="value">11.00 USDT per HP</span>
-                            </div>
-                        </div>
-                        
-                        <div class="input-group">
-                            <label for="burnHpAmount">HP Amount to Burn:</label>
-                            <div class="input-with-max">
-                                <input type="number" id="burnHpAmount" placeholder="1.0" step="0.01" min="0.01">
-                                <button class="max-btn" onclick="setMaxHPBurn()">MAX</button>
-                            </div>
-                            <div class="conversion-info">
-                                <span id="usdtReceived">You'll receive: 11.00 USDT</span>
-                            </div>
-                        </div>
-                        
-                        <div class="action-buttons">
-                            <button class="btn btn-danger" id="burnButton" onclick="executeAutoBurn()">
-                                <span class="btn-icon">🔥</span>
-                                <span class="btn-text">Auto Burn HP</span>
-                            </button>
-                            <button class="btn btn-secondary" onclick="closeBurnModal()">
-                                Cancel
-                            </button>
-                        </div>
-                        
-                        <div class="process-steps" id="burnSteps" style="display: none;">
-                            <div class="step" id="burnStep1">
-                                <span class="step-icon">⏳</span>
-                                <span class="step-text">1. Burning HP tokens...</span>
-                            </div>
-                            <div class="step" id="burnStep2">
-                                <span class="step-icon">⏳</span>
-                                <span class="step-text">2. Receiving USDT...</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Transfer HP Modal -->
-        <div id="transferModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>📤 Transfer HP Tokens</h2>
-                    <button class="close-btn" onclick="closeTransferModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="transfer-form">
-                        <div class="balance-info">
-                            <div class="balance-item">
-                                <span class="label">Your HP Balance:</span>
-                                <span class="value" id="transferHpBalance">0.00 HP</span>
-                            </div>
-                            <div class="balance-item">
-                                <span class="label">Network:</span>
-                                <span class="value">BSC (Binance Smart Chain)</span>
-                            </div>
-                        </div>
-                        
-                        <div class="input-group">
-                            <label for="transferToAddress">Recipient Address:</label>
-                            <div class="address-input">
-                                <input type="text" id="transferToAddress" placeholder="0x..." class="address-field">
-                                <button class="scan-btn" onclick="scanQRForTransfer()" title="Scan QR Code">
-                                    <span>📷</span>
-                                </button>
-                            </div>
-                            <div class="address-validation" id="addressValidation" style="display: none;">
-                                <span class="validation-message"></span>
-                            </div>
-                        </div>
-                        
-                        <div class="input-group">
-                            <label for="transferHpAmount">HP Amount to Transfer:</label>
-                            <div class="input-with-max">
-                                <input type="number" id="transferHpAmount" placeholder="1.0" step="0.01" min="0.01">
-                                <button class="max-btn" onclick="setMaxHPTransfer()">MAX</button>
-                            </div>
-                            <div class="conversion-info">
-                                <span id="transferValue">Value: ~11.00 USDT</span>
-                            </div>
-                        </div>
-                        
-                        <div class="transfer-summary" id="transferSummary" style="display: none;">
-                            <div class="summary-item">
-                                <span class="label">Amount:</span>
-                                <span class="value" id="summaryAmount">0.00 HP</span>
-                            </div>
-                            <div class="summary-item">
-                                <span class="label">To:</span>
-                                <span class="value address-short" id="summaryAddress">0x...</span>
-                            </div>
-                            <div class="summary-item">
-                                <span class="label">Estimated Gas:</span>
-                                <span class="value" id="summaryGas">~0.001 BNB</span>
-                            </div>
-                        </div>
-                        
-                        <div class="action-buttons">
-                            <button class="btn btn-primary" id="transferButton" onclick="executeTransfer()" disabled>
-                                <span class="btn-icon">📤</span>
-                                <span class="btn-text">Send HP Tokens</span>
-                            </button>
-                            <button class="btn btn-secondary" onclick="closeTransferModal()">
-                                Cancel
-                            </button>
-                        </div>
-                        
-                        <div class="process-steps" id="transferSteps" style="display: none;">
-                            <div class="step" id="transferStep1">
-                                <span class="step-icon">⏳</span>
-                                <span class="step-text">1. Validating transaction...</span>
-                            </div>
-                            <div class="step" id="transferStep2">
-                                <span class="step-icon">⏳</span>
-                                <span class="step-text">2. Sending HP tokens...</span>
-                            </div>
-                            <div class="step" id="transferStep3">
-                                <span class="step-icon">⏳</span>
-                                <span class="step-text">3. Confirming transaction...</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Staking Modal -->
-        <div id="stakingModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>🔒 Stake HP Tokens</h2>
-                    <button class="close-btn" onclick="closeStakingModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="staking-form">
-                        <!-- Staking Information -->
-                        <div class="staking-info">
-                            <div class="info-card staking-benefits">
-                                <h4>💎 Staking Rewards</h4>
-                                <div class="benefits-grid">
-                                    <div class="benefit-item">
-                                        <span class="benefit-icon">📈</span>
-                                        <div class="benefit-details">
-                                            <span class="benefit-title">6% APR</span>
-                                            <span class="benefit-desc">Annual percentage rate</span>
-                                        </div>
-                                    </div>
-                                    <div class="benefit-item">
-                                        <span class="benefit-icon">⏰</span>
-                                        <div class="benefit-details">
-                                            <span class="benefit-title">30 Days</span>
-                                            <span class="benefit-desc">Lock period</span>
-                                        </div>
-                                    </div>
-                                    <div class="benefit-item">
-                                        <span class="benefit-icon">💰</span>
-                                        <div class="benefit-details">
-                                            <span class="benefit-title">$1000 Max</span>
-                                            <span class="benefit-desc">Maximum stake value</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Current Balance Info -->
-                        <div class="balance-info">
-                            <div class="balance-item">
-                                <span class="label">Your HP Balance:</span>
-                                <span class="value" id="stakeHpBalance">0.00 HP</span>
-                            </div>
-                            <div class="balance-item">
-                                <span class="label">HP Price:</span>
-                                <span class="value">$11.55 per HP</span>
-                            </div>
-                            <div class="balance-item">
-                                <span class="label">Currently Staked:</span>
-                                <span class="value" id="currentlyStaked">0.00 HP</span>
-                            </div>
-                            <div class="balance-item highlight">
-                                <span class="label">Available to Stake:</span>
-                                <span class="value" id="modalAvailableStake">0.00 HP ($0)</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Staking Input -->
-                        <div class="input-group">
-                            <label for="stakeAmount">HP Amount to Stake:</label>
-                            <div class="input-with-max">
-                                <input type="number" id="stakeAmount" placeholder="0.00" step="0.01" min="0.01" max="86.58">
-                                <button class="max-btn" onclick="setMaxStake()">MAX</button>
-                            </div>
-                            <div class="conversion-info">
-                                <span id="stakeValueUSD">Value: $0.00</span>
-                                <span id="stakeLimitWarning" class="warning-text" style="display: none;">Maximum stake value is $1000</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Staking Calculator -->
-                        <div class="staking-calculator">
-                            <h4>📊 Reward Calculator</h4>
-                            <div class="calculator-row">
-                                <span class="calc-label">Amount to Stake:</span>
-                                <span class="calc-value" id="calcStakeAmount">0.00 HP</span>
-                            </div>
-                            <div class="calculator-row">
-                                <span class="calc-label">Stake Period:</span>
-                                <span class="calc-value">30 Days</span>
-                            </div>
-                            <div class="calculator-row">
-                                <span class="calc-label">Interest Rate:</span>
-                                <span class="calc-value">6% APR (0.493% for 30 days)</span>
-                            </div>
-                            <div class="calculator-row highlight">
-                                <span class="calc-label">Expected Reward:</span>
-                                <span class="calc-value" id="expectedReward">0.00 HP</span>
-                            </div>
-                            <div class="calculator-row highlight">
-                                <span class="calc-label">Total After 30 Days:</span>
-                                <span class="calc-value" id="totalAfterStaking">0.00 HP</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Your Active Stakes -->
-                        <div class="active-stakes" id="activeStakes" style="display: none;">
-                            <h4>🔒 Your Active Stakes</h4>
-                            <div class="stakes-list" id="stakesList">
-                                <!-- Stakes will be populated dynamically -->
-                            </div>
-                        </div>
-                        
-                        <!-- Action Buttons -->
-                        <div class="action-buttons">
-                            <button class="btn btn-primary" id="stakeButton" onclick="executeStaking()" disabled>
-                                <span class="btn-icon">🔒</span>
-                                <span class="btn-text">Stake HP Tokens</span>
-                            </button>
-                            <button class="btn btn-secondary" onclick="closeStakingModal()">
-                                Cancel
-                            </button>
-                        </div>
-                        
-                        <!-- Process Steps -->
-                        <div class="process-steps" id="stakingSteps" style="display: none;">
-                            <div class="step" id="stakeStep1">
-                                <span class="step-icon">⏳</span>
-                                <span class="step-text">1. Validating stake amount...</span>
-                            </div>
-                            <div class="step" id="stakeStep2">
-                                <span class="step-icon">⏳</span>
-                                <span class="step-text">2. Locking tokens for 30 days...</span>
-                            </div>
-                            <div class="step" id="stakeStep3">
-                                <span class="step-icon">⏳</span>
-                                <span class="step-text">3. Confirming stake transaction...</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Owner Management Modals -->
-        
-        <!-- Withdraw Profits Modal -->
-        <div id="withdrawProfitsModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>💰 Withdraw Profits</h2>
-                    <button class="close-btn" onclick="closeWithdrawProfitsModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="profit-info">
-                        <div class="info-card">
-                            <h4>📊 Contract Status</h4>
-                            <div class="status-grid">
-                                <div class="status-item">
-                                    <span class="label">Total HP Tokens:</span>
-                                    <span class="value" id="modalTotalHP">0.00 HP</span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="label">Total USDT Collateral:</span>
-                                    <span class="value" id="modalTotalUSDT">0.00 USDT</span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="label">Available Profits:</span>
-                                    <span class="value profit-highlight" id="modalAvailableProfits">0.00 USDT</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="withdrawal-options">
-                        <div class="input-group">
-                            <label for="profitAmount">Amount to Withdraw (USDT):</label>
-                            <div class="input-with-max">
-                                <input type="number" id="profitAmount" placeholder="0.00" step="0.000001" min="0">
-                                <button class="max-btn" onclick="setMaxProfits()">MAX</button>
-                            </div>
-                        </div>
-                        
-                        <div class="action-buttons">
-                            <button class="btn btn-success" id="executeProfitWithdraw">
-                                <span class="btn-icon">💰</span>
-                                <span class="btn-text">Withdraw Profits</span>
-                            </button>
-                            <button class="btn btn-primary" id="withdrawAllProfits">
-                                <span class="btn-icon">🚀</span>
-                                <span class="btn-text">Withdraw All Profits</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Emergency Withdraw Modal -->
-        <div id="emergencyWithdrawModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>🆘 Emergency Withdraw</h2>
-                    <button class="close-btn" onclick="closeEmergencyModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="emergency-warning">
-                        <div class="warning-box">
-                            <h4>⚠️ WARNING</h4>
-                            <p>Emergency withdrawal will withdraw <strong>ALL USDT</strong> from the contract and disable normal operations until funds are redeposited.</p>
-                            <p>Use only in emergency situations!</p>
-                        </div>
-                    </div>
-                    
-                    <div class="emergency-methods">
-                        <h4>Emergency Response Options:</h4>
-                        <div class="method-buttons">
-                            <button class="btn btn-danger" onclick="executeEmergencyWithdraw('pauseAndWithdraw')">
-                                <span class="btn-icon">🆘</span>
-                                <span class="btn-text">Pause Contract & Withdraw All</span>
-                            </button>
-                            <button class="btn btn-danger" onclick="executeEmergencyWithdraw('emergencyWithdraw')">
-                                <span class="btn-icon">🆘</span>
-                                <span class="btn-text">Emergency Withdraw Function</span>
-                            </button>
-                            <button class="btn btn-danger" onclick="executeEmergencyWithdraw('withdrawAll')">
-                                <span class="btn-icon">🆘</span>
-                                <span class="btn-text">Withdraw All Function</span>
-                            </button>
-                            <button class="btn btn-danger" onclick="executeEmergencyWithdraw('totalCollateral')">
-                                <span class="btn-icon">🆘</span>
-                                <span class="btn-text">Force Collateral Withdrawal</span>
-                            </button>
-                            <button class="btn btn-warning" onclick="executeEmergencyWithdraw('pauseOnly')">
-                                <span class="btn-icon">⏸️</span>
-                                <span class="btn-text">Emergency Pause Only</span>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="emergency-confirmation" id="emergencyConfirmation" style="display: none;">
-                        <div class="confirmation-box">
-                            <h4>⚠️ FINAL CONFIRMATION</h4>
-                            <p id="confirmationText">Are you sure you want to execute emergency withdrawal?</p>
-                            <div class="confirmation-buttons">
-                                <button class="btn btn-danger" id="finalConfirmBtn">
-                                    <span class="btn-icon">✅</span>
-                                    <span class="btn-text">Yes, Execute Emergency Withdrawal</span>
-                                </button>
-                                <button class="btn btn-secondary" onclick="cancelEmergencyWithdraw()">
-                                    <span class="btn-text">Cancel</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Notifications Container -->
-        <div id="notifications" class="notifications-container"></div>
-
-        <!-- Help Menu Modal -->
-        <div id="helpMenuModal" class="help-menu-modal">
-            <div class="help-menu-content">
-                <button class="help-menu-close" onclick="closeHelpMenu()">&times;</button>
-                <div class="help-menu-header">
-                    <h2>🤝 Help & Assistance</h2>
-                </div>
-                <div class="help-menu-options">
-                    <div class="help-option" onclick="startOnboardingTutorial()">
-                        <div class="help-option-icon">🎯</div>
-                        <div class="help-option-content">
-                            <h3>Start Tutorial</h3>
-                            <p>Begin the guided onboarding tour to learn about all features</p>
-                        </div>
-                    </div>
-                    <div class="help-option" onclick="showQuickHelp()">
-                        <div class="help-option-icon">⚡</div>
-                        <div class="help-option-content">
-                            <h3>Quick Help</h3>
-                            <p>Get instant help with common tasks and troubleshooting</p>
-                        </div>
-                    </div>
-                    <div class="help-option" onclick="showVoiceCommands()">
-                        <div class="help-option-icon">🎤</div>
-                        <div class="help-option-content">
-                            <h3>Voice Commands</h3>
-                            <p>Learn available voice commands for hands-free operation</p>
-                        </div>
-                    </div>
-                    <div class="help-option" onclick="showSecurityHelp()">
-                        <div class="help-option-icon">🛡️</div>
-                        <div class="help-option-content">
-                            <h3>Security Features</h3>
-                            <p>Understand biometric security and wallet protection</p>
-                        </div>
-                    </div>
-                    <div class="help-option" onclick="showTokenHelp()">
-                        <div class="help-option-icon">🪙</div>
-                        <div class="help-option-content">
-                            <h3>Token Management</h3>
-                            <p>Learn about minting, burning, and transferring HP tokens</p>
-                        </div>
-                    </div>
-                    <div class="help-option" onclick="contactSupport()">
-                        <div class="help-option-icon">📞</div>
-                        <div class="help-option-content">
-                            <h3>Contact Support</h3>
-                            <p>Get in touch with our support team for additional assistance</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
+        </aside>
     </div>
+
+    <!-- Modals -->
+    <!-- Mint Modal -->
+    <div id="mintModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🪙 Mint HP Tokens</h2>
+                <button class="close-btn" onclick="closeMintModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>HP Amount to Mint</label>
+                    <input type="number" id="mintAmount" placeholder="1.0" step="0.01">
+                    <div class="input-info">Cost: <span id="mintCost">11.00 USDT</span></div>
+                </div>
+                <button class="modal-btn primary" onclick="executeMint()">Mint Tokens</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Burn Modal -->
+    <div id="burnModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔥 Burn HP Tokens</h2>
+                <button class="close-btn" onclick="closeBurnModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>HP Amount to Burn</label>
+                    <input type="number" id="burnAmount" placeholder="1.0" step="0.01">
+                    <div class="input-info">You'll receive: <span id="burnReceive">11.00 USDT</span></div>
+                </div>
+                <button class="modal-btn danger" onclick="executeBurn()">Burn Tokens</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transfer Modal -->
+    <div id="transferModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📤 Transfer HP Tokens</h2>
+                <button class="close-btn" onclick="closeTransferModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>Recipient Address</label>
+                    <input type="text" id="transferAddress" placeholder="0x...">
+                </div>
+                <div class="input-group">
+                    <label>HP Amount</label>
+                    <input type="number" id="transferAmount" placeholder="1.0" step="0.01">
+                </div>
+                <button class="modal-btn primary" onclick="executeTransfer()">Send Tokens</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Staking Modal -->
+    <div id="stakingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔒 Stake HP Tokens</h2>
+                <button class="close-btn" onclick="closeStakingModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="staking-info">
+                    <div class="info-item">
+                        <span>APR: 6%</span>
+                        <span>Lock Period: 30 days</span>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>HP Amount to Stake</label>
+                    <input type="number" id="stakeAmount" placeholder="1.0" step="0.01">
+                    <div class="input-info">Expected reward: <span id="expectedReward">0.00 HP</span></div>
+                </div>
+                <button class="modal-btn primary" onclick="executeStaking()">Stake Tokens</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications -->
+    <div id="notifications" class="notifications"></div>
 
     <!-- Scripts -->
     <script src="config.js"></script>
     <script src="js/console-fixes.js"></script>
     <script src="js/wallet-security-fix.js"></script>
-    <script src="js/user-onboarding.js"></script>
-    <script src="js/biometric-monitor.js"></script>
-    <script src="js/voice-processor.js"></script>
-    <script src="js/avatar-controller.js"></script>
     <script src="js/blockchain-interface.js"></script>
-    <script src="js/hp-price-display.js"></script>
     <script src="js/mint-burn-interface.js"></script>
     <script src="js/transfer-interface.js"></script>
     <script src="js/staking-interface.js"></script>
-    <script src="js/owner-management.js"></script>
     <script src="js/mr-happy-assistant.js"></script>
-    <script src="js/built-in-wallet.js"></script>
-    <script src="js/wallet-ui.js"></script>
-    <script src="js/main-app.js"></script>
-    
+    <script src="home-assistant-script.js"></script>
 </body>
 </html>
