@@ -326,66 +326,458 @@ class HomeAssistantApp {
             if (typeof window.ethereum !== 'undefined') {
                 this.web3 = new Web3(window.ethereum);
                 
-                // Check if already connected
-                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-                if (accounts.length > 0) {
-                    this.account = accounts[0];
-                    this.walletConnected = true;
-                    this.updateWalletUI();
-                }
+                // Setup wallet change listeners for real-time security
+                this.setupWalletChangeListeners();
+                
+                // Check if already connected and recover state
+                await this.recoverWalletState();
             }
         } catch (error) {
             console.error('Web3 initialization error:', error);
         }
     }
     
-    async connectWallet() {
+    async recoverWalletState() {
         try {
-            // Use existing blockchain interface for wallet connection
-            if (typeof window.connectWallet === 'function') {
-                showNotification('Connecting to wallet...', 'info');
-                await window.connectWallet();
+            if (!window.ethereum || !window.ethereum.isMetaMask) {
+                return;
+            }
+            
+            console.log('🔄 Checking existing wallet connection...');
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            
+            if (accounts.length > 0) {
+                console.log('✅ Found existing connection:', accounts[0]);
                 
-                // Check if connection was successful
-                if (window.blockchainInterface && window.blockchainInterface.isConnected) {
-                    this.walletConnected = true;
-                    this.account = window.blockchainInterface.currentAccount;
-                    this.web3 = window.blockchainInterface.web3;
-                    
-                    this.updateWalletUI();
-                    this.loadBalances();
-                    
-                    showNotification('✅ Wallet connected successfully!', 'success');
-                } else {
-                    showNotification('❌ Failed to connect wallet', 'error');
-                }
-            } else {
-                // Fallback to direct MetaMask connection
-                if (!window.ethereum) {
-                    showNotification('❌ MetaMask not detected. Please install MetaMask.', 'error');
-                    return;
-                }
+                // Check network
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                const networkId = parseInt(chainId, 16);
                 
-                showNotification('Connecting to wallet...', 'info');
-                
-                const accounts = await window.ethereum.request({
-                    method: 'eth_requestAccounts'
-                });
-                
-                if (accounts.length > 0) {
+                if (networkId === 56) { // BSC Mainnet
+                    // Recover wallet state
                     this.account = accounts[0];
                     this.walletConnected = true;
-                    this.web3 = new Web3(window.ethereum);
                     
+                    // Sync all interfaces
+                    await this.syncBlockchainInterface();
                     this.updateWalletUI();
-                    this.loadBalances();
                     
-                    showNotification('✅ Wallet connected successfully!', 'success');
+                    // Load balances
+                    setTimeout(async () => {
+                        await this.loadBalances();
+                        await this.checkOwnerStatus();
+                    }, 1000);
+                    
+                    showNotification('✅ Wallet connection restored', 'success');
+                } else {
+                    console.log('⚠️ Wallet connected but wrong network:', networkId);
+                    showNotification(`⚠️ Connected to network ${networkId}. Please switch to BSC (56)`, 'warning');
                 }
+            } else {
+                console.log('🔴 No existing wallet connection found');
             }
+            
+        } catch (error) {
+            console.error('Error recovering wallet state:', error);
+        }
+    }
+    
+    async connectWallet() {
+        try {
+            // Clear any existing connection first for security
+            this.clearWalletConnection();
+            
+            // Detect and validate wallet type
+            const walletType = this.detectWalletType();
+            if (walletType !== 'metamask') {
+                showNotification(`🚫 ${walletType} detected. Please use MetaMask for BSC network.`, 'error');
+                return;
+            }
+            
+            if (!window.ethereum || !window.ethereum.isMetaMask) {
+                showNotification('❌ MetaMask not detected. Please install MetaMask and refresh the page.', 'error');
+                return;
+            }
+            
+            showNotification('🔐 Opening MetaMask for approval...', 'info');
+            console.log('🔗 Requesting fresh wallet connection approval...');
+            
+            // Force MetaMask popup by always requesting accounts
+            const accounts = await window.ethereum.request({
+                method: 'eth_requestAccounts'
+            });
+            
+            if (!accounts || accounts.length === 0) {
+                showNotification('❌ No accounts available. Please unlock MetaMask.', 'error');
+                return;
+            }
+            
+            console.log('✅ MetaMask approval received for:', accounts[0]);
+            
+            // Security check - ensure account format is valid Ethereum address
+            if (!this.isValidEthereumAddress(accounts[0])) {
+                showNotification('❌ Invalid Ethereum address format detected.', 'error');
+                this.clearWalletConnection();
+                return;
+            }
+            
+            // Update local state
+            this.account = accounts[0];
+            this.walletConnected = true;
+            this.web3 = new Web3(window.ethereum);
+            
+            // Verify network and force BSC if needed
+            const networkValid = await this.verifyAndSwitchNetwork();
+            if (!networkValid) {
+                this.clearWalletConnection();
+                return;
+            }
+            
+            // Update UI and load data
+            this.updateWalletUI();
+            await this.loadBalances();
+            
+            // Sync blockchain interface
+            await this.syncBlockchainInterface();
+            
+            showNotification(`✅ MetaMask connected: ${this.account.substring(0, 6)}...${this.account.substring(38)}`, 'success');
+            
         } catch (error) {
             console.error('Wallet connection error:', error);
-            showNotification('❌ Failed to connect wallet', 'error');
+            this.clearWalletConnection();
+            
+            if (error.code === 4001) {
+                showNotification('❌ Connection rejected. Please approve in MetaMask to continue.', 'error');
+            } else if (error.code === -32002) {
+                showNotification('⏳ Connection request pending. Please check MetaMask popup.', 'warning');
+            } else {
+                showNotification(`❌ Failed to connect: ${error.message}`, 'error');
+            }
+        }
+    }
+    
+    setupWalletChangeListeners() {
+        if (!window.ethereum) return;
+        
+        console.log('🔒 Setting up real-time wallet change detection...');
+        
+        // Remove any existing listeners to prevent duplicates
+        if (window.ethereum.removeAllListeners) {
+            window.ethereum.removeAllListeners();
+        }
+        
+        // Listen for account changes
+        window.ethereum.on('accountsChanged', (accounts) => {
+            console.log('🔄 Account changed detected:', accounts);
+            this.handleAccountChange(accounts);
+        });
+        
+        // Listen for chain changes
+        window.ethereum.on('chainChanged', (chainId) => {
+            console.log('🔄 Chain changed detected:', chainId);
+            this.handleChainChange(chainId);
+        });
+        
+        // Listen for connection state changes
+        window.ethereum.on('connect', (connectInfo) => {
+            console.log('🔗 Wallet connection established:', connectInfo);
+            // Refresh current state
+            setTimeout(() => {
+                this.initializeWeb3();
+            }, 1000);
+        });
+        
+        // Listen for disconnect
+        window.ethereum.on('disconnect', (error) => {
+            console.log('🔌 Wallet disconnected:', error);
+            this.handleWalletDisconnect();
+        });
+        
+        // Set up periodic connection check as fallback
+        setInterval(async () => {
+            if (this.walletConnected && window.ethereum) {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    if (accounts.length === 0 && this.walletConnected) {
+                        console.log('⚠️ Periodic check: Wallet appears disconnected');
+                        this.handleAccountChange([]);
+                    }
+                } catch (error) {
+                    console.warn('Periodic wallet check failed:', error);
+                }
+            }
+        }, 5000); // Check every 5 seconds
+    }
+    
+    async handleAccountChange(accounts) {
+        console.log('🔒 Processing account change for security...');
+        
+        // Immediately hide owner panel for security
+        const ownerPanel = document.getElementById('ownerPanel');
+        if (ownerPanel) {
+            ownerPanel.style.display = 'none';
+            console.log('🔒 Owner panel hidden for security');
+        }
+        
+        if (accounts.length === 0) {
+            // Wallet disconnected
+            this.walletConnected = false;
+            this.account = null;
+            this.web3 = null;
+            
+            showNotification('🔌 Wallet disconnected', 'warning');
+            this.updateWalletUI();
+        } else {
+            // Account changed
+            const newAccount = accounts[0];
+            const oldAccount = this.account;
+            
+            this.account = newAccount;
+            
+            showNotification(`🔄 Wallet changed to: ${newAccount.substring(0, 6)}...${newAccount.substring(38)}`, 'info');
+            
+            // Update UI immediately
+            this.updateWalletUI();
+            
+            // Reload balances for new account
+            await this.loadBalances();
+            
+            // Security: Re-check owner status with new account
+            await this.checkOwnerStatus();
+            
+            console.log(`🔒 Account change processed: ${oldAccount} → ${newAccount}`);
+        }
+    }
+    
+    handleChainChange(chainId) {
+        const networkId = parseInt(chainId, 16);
+        console.log(`🔄 Network changed to: ${networkId}`);
+        
+        // Hide owner panel when switching networks for security
+        const ownerPanel = document.getElementById('ownerPanel');
+        if (ownerPanel) {
+            ownerPanel.style.display = 'none';
+        }
+        
+        if (networkId !== 56) {
+            showNotification(`⚠️ Switched to network ${networkId}. Please use BSC (56) for full functionality.`, 'warning');
+        } else {
+            showNotification('✅ Connected to BSC Mainnet', 'success');
+            // Re-check everything on BSC
+            setTimeout(() => {
+                this.loadBalances();
+                this.checkOwnerStatus();
+            }, 1000);
+        }
+    }
+    
+    handleWalletDisconnect() {
+        console.log('🔌 Processing wallet disconnect...');
+        
+        this.clearWalletConnection();
+        showNotification('🔌 Wallet disconnected', 'warning');
+        this.updateWalletUI();
+    }
+    
+    // Security Methods
+    detectWalletType() {
+        if (window.solana && window.solana.isPhantom) {
+            return 'phantom';
+        }
+        if (window.ethereum) {
+            if (window.ethereum.isMetaMask) {
+                return 'metamask';
+            }
+            if (window.ethereum.isCoinbaseWallet) {
+                return 'coinbase';
+            }
+            if (window.ethereum.isTrust) {
+                return 'trust';
+            }
+            return 'ethereum';
+        }
+        return 'none';
+    }
+    
+    isValidEthereumAddress(address) {
+        if (!address || typeof address !== 'string') return false;
+        return /^0x[a-fA-F0-9]{40}$/.test(address);
+    }
+    
+    async verifyAndSwitchNetwork() {
+        try {
+            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+            const networkId = parseInt(chainId, 16);
+            
+            console.log('🌐 Current network ID:', networkId);
+            
+            if (networkId !== 56) {
+                showNotification(`⚠️ Wrong network (${networkId}). Switching to BSC Mainnet...`, 'warning');
+                
+                try {
+                    // Try to switch to BSC
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x38' }] // BSC Mainnet
+                    });
+                    
+                    showNotification('✅ Successfully switched to BSC Mainnet', 'success');
+                    return true;
+                    
+                } catch (switchError) {
+                    // Network doesn't exist, try to add it
+                    if (switchError.code === 4902) {
+                        try {
+                            await window.ethereum.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [{
+                                    chainId: '0x38',
+                                    chainName: 'BSC Mainnet',
+                                    rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                                    nativeCurrency: {
+                                        name: 'BNB',
+                                        symbol: 'BNB',
+                                        decimals: 18
+                                    },
+                                    blockExplorerUrls: ['https://bscscan.com/']
+                                }]
+                            });
+                            
+                            showNotification('✅ BSC network added and connected', 'success');
+                            return true;
+                            
+                        } catch (addError) {
+                            showNotification(`❌ Failed to add BSC network: ${addError.message}`, 'error');
+                            return false;
+                        }
+                    } else {
+                        showNotification(`❌ Failed to switch network: ${switchError.message}`, 'error');
+                        return false;
+                    }
+                }
+            } else {
+                showNotification('✅ Connected to BSC Mainnet', 'success');
+                return true;
+            }
+            
+        } catch (error) {
+            console.error('Network verification error:', error);
+            showNotification(`❌ Network check failed: ${error.message}`, 'error');
+            return false;
+        }
+    }
+    
+    clearWalletConnection() {
+        console.log('🧹 Clearing wallet connection for security...');
+        
+        this.walletConnected = false;
+        this.account = null;
+        this.web3 = null;
+        
+        // Clear blockchain interface
+        if (window.blockchainInterface) {
+            window.blockchainInterface.account = null;
+            window.blockchainInterface.isConnected = false;
+            window.blockchainInterface.web3 = null;
+        }
+        
+        // Hide owner panel immediately for security
+        const ownerPanel = document.getElementById('ownerPanel');
+        if (ownerPanel) {
+            ownerPanel.style.display = 'none';
+        }
+    }
+    
+    async syncBlockchainInterface() {
+        if (window.blockchainInterface) {
+            console.log('⚙️ Syncing blockchain interface...');
+            
+            // Set basic properties
+            window.blockchainInterface.account = this.account;
+            window.blockchainInterface.isConnected = this.walletConnected;
+            window.blockchainInterface.web3 = this.web3;
+            
+            // Ensure blockchain interface is properly initialized
+            if (this.web3 && this.account && this.walletConnected) {
+                try {
+                    // Check if contract is initialized
+                    if (!window.blockchainInterface.contract) {
+                        console.log('⚙️ Initializing blockchain interface contract...');
+                        await window.blockchainInterface.initializeContract();
+                    }
+                    
+                    // Force refresh the connection state
+                    if (typeof window.blockchainInterface.refreshConnection === 'function') {
+                        await window.blockchainInterface.refreshConnection();
+                    }
+                    
+                    console.log('✅ Blockchain interface fully synced - Account:', this.account, 'Connected:', this.walletConnected);
+                    console.log('✅ Contract available:', !!window.blockchainInterface.contract);
+                    console.log('✅ Web3 available:', !!window.blockchainInterface.web3);
+                } catch (error) {
+                    console.error('❌ Error during blockchain interface sync:', error);
+                }
+            } else {
+                console.log('⚠️ Cannot fully sync blockchain interface - missing wallet data');
+            }
+        } else {
+            console.warn('⚠️ Blockchain interface not available for syncing');
+        }
+    }
+    
+    async validateWalletConnection() {
+        try {
+            // Check local state first
+            if (!this.walletConnected || !this.account || !this.web3) {
+                console.log('🔴 Local wallet state invalid');
+                return false;
+            }
+            
+            // Verify with MetaMask directly
+            if (window.ethereum && window.ethereum.isMetaMask) {
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                
+                if (accounts.length === 0) {
+                    console.log('🔴 No accounts available in MetaMask');
+                    this.clearWalletConnection();
+                    this.updateWalletUI();
+                    return false;
+                }
+                
+                // Check if the current account is still available
+                const currentAccountAvailable = accounts.some(acc => 
+                    acc.toLowerCase() === this.account.toLowerCase()
+                );
+                
+                if (!currentAccountAvailable) {
+                    console.log('🔴 Current account no longer available in MetaMask');
+                    // Update to the new active account
+                    this.account = accounts[0];
+                    await this.syncBlockchainInterface();
+                    showNotification(`🔄 Account changed to: ${accounts[0].substring(0, 6)}...${accounts[0].substring(38)}`, 'info');
+                    this.updateWalletUI();
+                }
+                
+                // Check network
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                const networkId = parseInt(chainId, 16);
+                
+                if (networkId !== 56) {
+                    console.log('🔴 Wrong network:', networkId);
+                    showNotification(`⚠️ Please switch to BSC Mainnet (current: ${networkId})`, 'warning');
+                    return false;
+                }
+                
+                console.log('✅ Wallet connection validated successfully');
+                return true;
+            }
+            
+            console.log('🔴 MetaMask not available');
+            return false;
+            
+        } catch (error) {
+            console.error('Wallet validation error:', error);
+            return false;
         }
     }
     
@@ -393,27 +785,145 @@ class HomeAssistantApp {
         const walletCardStatus = document.getElementById('walletCardStatus');
         const walletStatus = document.getElementById('walletStatus');
         
-        if (this.walletConnected) {
-            walletCardStatus.classList.add('active');
-            walletStatus.classList.add('active');
+        // Find the connect wallet card more reliably
+        let connectWalletCard = document.querySelector('.action-card[onclick*="connectWallet"]');
+        if (!connectWalletCard) {
+            connectWalletCard = document.querySelector('.action-card[onclick*="disconnectWallet"]');
+        }
+        
+        console.log('🔄 Updating wallet UI - Connected:', this.walletConnected, 'Account:', this.account);
+        
+        if (this.walletConnected && this.account) {
+            if (walletCardStatus) walletCardStatus.classList.add('active');
+            if (walletStatus) walletStatus.classList.add('active');
             
-            // Update action cards
-            document.getElementById('mintCard').classList.remove('disabled');
-            document.getElementById('burnCard').classList.remove('disabled');
-            document.getElementById('transferCard').classList.remove('disabled');
-            document.getElementById('stakeCard').classList.remove('disabled');
+            // Update connect wallet card to show connected state
+            if (connectWalletCard) {
+                const cardContent = connectWalletCard.querySelector('.card-content');
+                if (cardContent) {
+                    const h3 = cardContent.querySelector('h3');
+                    const p = cardContent.querySelector('p');
+                    if (h3) h3.textContent = 'Wallet Connected';
+                    if (p) p.textContent = `${this.account.substring(0, 6)}...${this.account.substring(38)}`;
+                }
+                connectWalletCard.setAttribute('onclick', 'disconnectWallet()');
+                connectWalletCard.classList.add('connected');
+            }
             
-            // Check if user is owner and show owner functions
-            this.checkOwnerStatus();
+            // Update wallet address display
+            const walletAddressElements = document.querySelectorAll('[id*="walletAddress"], [class*="wallet-address"]');
+            walletAddressElements.forEach(element => {
+                if (element) {
+                    element.textContent = `${this.account.substring(0, 6)}...${this.account.substring(38)}`;
+                }
+            });
+            
+            // Enable action cards
+            const actionCards = ['mintCard', 'burnCard', 'transferCard', 'stakeCard'];
+            actionCards.forEach(cardId => {
+                const card = document.getElementById(cardId);
+                if (card) card.classList.remove('disabled');
+            });
+            
+            // Force balance loading after UI update
+            setTimeout(() => {
+                this.loadBalances();
+                this.checkOwnerStatus();
+            }, 500);
+            
+        } else {
+            // Wallet not connected - disable everything
+            if (walletCardStatus) walletCardStatus.classList.remove('active');
+            if (walletStatus) walletStatus.classList.remove('active');
+            
+            // Update connect wallet card to show disconnected state
+            if (connectWalletCard) {
+                const cardContent = connectWalletCard.querySelector('.card-content');
+                if (cardContent) {
+                    const h3 = cardContent.querySelector('h3');
+                    const p = cardContent.querySelector('p');
+                    if (h3) h3.textContent = 'Connect Wallet';
+                    if (p) p.textContent = 'Link your crypto wallet';
+                }
+                connectWalletCard.setAttribute('onclick', 'connectWallet()');
+                connectWalletCard.classList.remove('connected');
+            }
+            
+            // Disable action cards
+            const actionCards = ['mintCard', 'burnCard', 'transferCard', 'stakeCard'];
+            actionCards.forEach(cardId => {
+                const card = document.getElementById(cardId);
+                if (card) card.classList.add('disabled');
+            });
+            
+            // Reset balance display
+            const balanceElements = {
+                'hpBalance': '0.00',
+                'usdtBalance': '0.00', 
+                'bnbBalance': '0.00',
+                'hpValue': '$0.00',
+                'usdtValue': '$0.00',
+                'bnbValue': '$0.00'
+            };
+            
+            Object.entries(balanceElements).forEach(([id, value]) => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value;
+            });
+            
+            // Hide owner panel
+            const ownerPanel = document.getElementById('ownerPanel');
+            if (ownerPanel) {
+                ownerPanel.style.display = 'none';
+            }
         }
         
         this.updateSecurityStatus();
     }
     
+    disconnectWallet() {
+        try {
+            console.log('🔌 Disconnecting wallet...');
+            
+            // Reset local state
+            this.walletConnected = false;
+            this.account = null;
+            this.web3 = null;
+            
+            // Reset blockchain interface if available
+            if (window.blockchainInterface) {
+                window.blockchainInterface.account = null;
+                window.blockchainInterface.isConnected = false;
+                window.blockchainInterface.web3 = null;
+            }
+            
+            // Update UI
+            this.updateWalletUI();
+            
+            showNotification('🔌 Wallet disconnected successfully', 'info');
+            
+        } catch (error) {
+            console.error('Disconnect error:', error);
+            showNotification('❌ Error disconnecting wallet', 'error');
+        }
+    }
+    
     async loadBalances() {
-        if (!this.walletConnected) return;
+        if (!this.walletConnected || !this.account) {
+            console.log('⚠️ Cannot load balances - wallet not connected or no account');
+            return;
+        }
         
         try {
+            console.log('💰 Loading balances for account:', this.account);
+            
+            // Force sync blockchain interface with our state
+            if (window.blockchainInterface) {
+                window.blockchainInterface.account = this.account;
+                window.blockchainInterface.isConnected = true;
+                window.blockchainInterface.web3 = this.web3;
+            }
+            
             // Use existing blockchain interface for loading balances
             if (window.blockchainInterface && typeof window.blockchainInterface.loadAllBalances === 'function') {
                 await window.blockchainInterface.loadAllBalances();
@@ -421,45 +931,67 @@ class HomeAssistantApp {
                 // Get updated balances from the interface
                 const balances = window.blockchainInterface.balances;
                 
+                console.log('📊 Balance data received:', balances);
+                
                 if (balances) {
                     // Update BNB balance
                     const bnbElement = document.getElementById('bnbBalance');
                     const bnbValueElement = document.getElementById('bnbValue');
                     if (bnbElement && balances.bnb !== undefined) {
-                        bnbElement.textContent = parseFloat(balances.bnb).toFixed(4);
+                        const bnbBalance = parseFloat(balances.bnb) || 0;
+                        bnbElement.textContent = bnbBalance.toFixed(4);
                         if (bnbValueElement && window.bnbPrice) {
-                            bnbValueElement.textContent = `$${(parseFloat(balances.bnb) * window.bnbPrice).toFixed(2)}`;
+                            bnbValueElement.textContent = `$${(bnbBalance * window.bnbPrice).toFixed(2)}`;
                         }
+                        console.log('🟡 BNB balance updated:', bnbBalance);
                     }
                     
                     // Update HP balance
                     const hpElement = document.getElementById('hpBalance');
                     const hpValueElement = document.getElementById('hpValue');
                     if (hpElement && balances.hp !== undefined) {
-                        hpElement.textContent = parseFloat(balances.hp).toFixed(2);
+                        const hpBalance = parseFloat(balances.hp) || 0;
+                        hpElement.textContent = hpBalance.toFixed(2);
                         if (hpValueElement) {
-                            const hpValue = parseFloat(balances.hp) * 11; // HP fixed price
+                            const hpValue = hpBalance * 11; // HP fixed price
                             hpValueElement.textContent = `$${hpValue.toFixed(2)}`;
                         }
+                        console.log('🪙 HP balance updated:', hpBalance);
                     }
                     
                     // Update USDT balance
                     const usdtElement = document.getElementById('usdtBalance');
                     const usdtValueElement = document.getElementById('usdtValue');
                     if (usdtElement && balances.usdt !== undefined) {
-                        usdtElement.textContent = parseFloat(balances.usdt).toFixed(2);
+                        const usdtBalance = parseFloat(balances.usdt) || 0;
+                        usdtElement.textContent = usdtBalance.toFixed(2);
                         if (usdtValueElement) {
-                            usdtValueElement.textContent = `$${parseFloat(balances.usdt).toFixed(2)}`;
+                            usdtValueElement.textContent = `$${usdtBalance.toFixed(2)}`;
                         }
+                        console.log('💵 USDT balance updated:', usdtBalance);
                     }
+                    
+                    showNotification('✅ Balances updated successfully', 'success');
+                } else {
+                    console.warn('⚠️ No balance data received from blockchain interface');
+                    // Try fallback method
+                    await this.loadTokenBalancesFallback();
                 }
             } else {
+                console.log('🔄 Using fallback balance loading');
                 // Fallback balance loading
                 await this.loadTokenBalancesFallback();
             }
         } catch (error) {
             console.error('Error loading balances:', error);
-            showNotification('⚠️ Error loading balances', 'warning');
+            showNotification('❌ Error loading balances: ' + error.message, 'error');
+            
+            // Try fallback on error
+            try {
+                await this.loadTokenBalancesFallback();
+            } catch (fallbackError) {
+                console.error('Fallback balance loading also failed:', fallbackError);
+            }
         }
     }
     
@@ -673,172 +1205,217 @@ Need help? Just ask Mr. Happy!
     
     // Owner management functions
     openWithdrawProfitsModal() {
-        document.getElementById('withdrawProfitsModal').classList.add('show');
+        if (window.ownerManager && typeof window.ownerManager.openWithdrawProfitsModal === 'function') {
+            window.ownerManager.openWithdrawProfitsModal();
+        } else {
+            const modal = document.getElementById('withdrawProfitsModal');
+            if (modal) {
+                modal.style.display = 'block';
+            }
+        }
     }
     
     closeWithdrawProfitsModal() {
-        document.getElementById('withdrawProfitsModal').classList.remove('show');
+        if (window.ownerManager && typeof window.ownerManager.closeWithdrawProfitsModal === 'function') {
+            window.ownerManager.closeWithdrawProfitsModal();
+        } else {
+            const modal = document.getElementById('withdrawProfitsModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
     }
     
     openEmergencyModal() {
-        document.getElementById('emergencyWithdrawModal').classList.add('show');
+        if (window.ownerManager && typeof window.ownerManager.openEmergencyModal === 'function') {
+            window.ownerManager.openEmergencyModal();
+        } else {
+            const modal = document.getElementById('emergencyWithdrawModal');
+            if (modal) {
+                modal.style.display = 'block';
+            }
+        }
     }
     
     closeEmergencyModal() {
-        document.getElementById('emergencyWithdrawModal').classList.remove('show');
+        if (window.ownerManager && typeof window.ownerManager.closeEmergencyModal === 'function') {
+            window.ownerManager.closeEmergencyModal();
+        } else {
+            const modal = document.getElementById('emergencyWithdrawModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
     }
     
     setMaxProfits() {
-        const availableProfits = document.getElementById('modalAvailableProfits').textContent;
-        const amount = parseFloat(availableProfits.replace(/[^0-9.]/g, ''));
-        document.getElementById('profitAmount').value = amount.toFixed(6);
+        if (window.ownerManager && typeof window.ownerManager.setMaxProfits === 'function') {
+            window.ownerManager.setMaxProfits();
+        } else {
+            const availableProfits = document.getElementById('modalAvailableProfits').textContent;
+            const amount = parseFloat(availableProfits.replace(/[^0-9.]/g, ''));
+            const profitAmountInput = document.getElementById('profitAmount');
+            if (profitAmountInput) {
+                profitAmountInput.value = amount.toFixed(6);
+            }
+        }
     }
     
     executeWithdrawProfits() {
-        const amount = document.getElementById('profitAmount').value;
-        if (!amount || amount <= 0) {
-            showNotification('Please enter a valid amount', 'warning');
-            return;
-        }
-        
-        try {
-            showNotification(`💰 Withdrawing ${amount} USDT profits...`, 'info');
-            this.closeWithdrawProfitsModal();
-            
-            // Use existing owner management interface
-            if (window.withdrawProfits && typeof window.withdrawProfits === 'function') {
-                window.withdrawProfits(amount);
-                showNotification(`✅ Successfully withdrew ${amount} USDT profits!`, 'success');
-            } else if (window.blockchainInterface && typeof window.blockchainInterface.withdrawProfits === 'function') {
-                window.blockchainInterface.withdrawProfits(amount);
-                showNotification(`✅ Successfully withdrew ${amount} USDT profits!`, 'success');
-            } else {
-                // Fallback - trigger existing owner function if available
-                const ownerBtn = document.getElementById('withdrawProfitsBtn');
-                if (ownerBtn) {
-                    ownerBtn.click();
-                    return;
-                }
-                throw new Error('Owner withdrawal functionality not available');
+        if (window.ownerManager && typeof window.ownerManager.withdrawSpecificAmount === 'function') {
+            window.ownerManager.withdrawSpecificAmount();
+        } else {
+            const amount = document.getElementById('profitAmount').value;
+            if (!amount || amount <= 0) {
+                showNotification('Please enter a valid amount', 'warning');
+                return;
             }
             
-        } catch (error) {
-            console.error('Withdraw profits error:', error);
-            showNotification(`❌ Failed to withdraw profits: ${error.message}`, 'error');
+            try {
+                showNotification(`💰 Withdrawing ${amount} USDT profits...`, 'info');
+                this.closeWithdrawProfitsModal();
+                
+                // Fallback implementation
+                if (window.blockchainInterface && window.blockchainInterface.contract) {
+                    const convertedAmount = window.blockchainInterface.web3.utils.toWei(amount.toString(), 'ether');
+                    window.blockchainInterface.contract.methods.withdrawExcessCollateral(convertedAmount).send({
+                        from: window.blockchainInterface.account
+                    }).then(result => {
+                        showNotification(`✅ Successfully withdrew ${amount} USDT profits! TX: ${result.transactionHash}`, 'success');
+                        setTimeout(() => this.loadOwnerData(), 2000);
+                    }).catch(error => {
+                        showNotification(`❌ Failed to withdraw profits: ${error.message}`, 'error');
+                    });
+                } else {
+                    throw new Error('Blockchain interface not available');
+                }
+                
+            } catch (error) {
+                console.error('Withdraw profits error:', error);
+                showNotification(`❌ Failed to withdraw profits: ${error.message}`, 'error');
+            }
         }
     }
     
     executeEmergencyWithdraw() {
-        try {
-            showNotification('🆘 Executing emergency withdrawal...', 'warning');
-            this.closeEmergencyModal();
-            
-            // Use existing emergency withdrawal interface
-            if (window.emergencyWithdraw && typeof window.emergencyWithdraw === 'function') {
-                window.emergencyWithdraw();
-                showNotification('✅ Emergency withdrawal executed!', 'success');
-            } else if (window.blockchainInterface && typeof window.blockchainInterface.emergencyWithdraw === 'function') {
-                window.blockchainInterface.emergencyWithdraw();
-                showNotification('✅ Emergency withdrawal executed!', 'success');
-            } else {
-                // Fallback - trigger existing emergency function
-                const emergencyBtn = document.getElementById('emergencyWithdrawBtn');
-                if (emergencyBtn) {
-                    emergencyBtn.click();
-                    return;
+        if (window.ownerManager && typeof window.ownerManager.executeEmergencyWithdraw === 'function') {
+            window.ownerManager.executeEmergencyWithdraw('emergencyWithdraw');
+        } else {
+            try {
+                showNotification('🆘 Executing emergency withdrawal...', 'warning');
+                this.closeEmergencyModal();
+                
+                // Fallback implementation
+                if (window.blockchainInterface && window.blockchainInterface.contract) {
+                    // Try emergency withdraw function
+                    if (window.blockchainInterface.contract.methods.emergencyWithdraw) {
+                        window.blockchainInterface.contract.methods.emergencyWithdraw().send({
+                            from: window.blockchainInterface.account
+                        }).then(result => {
+                            showNotification(`✅ Emergency withdrawal executed! TX: ${result.transactionHash}`, 'success');
+                            setTimeout(() => this.loadOwnerData(), 2000);
+                        }).catch(error => {
+                            showNotification(`❌ Emergency withdrawal failed: ${error.message}`, 'error');
+                        });
+                    } else {
+                        throw new Error('Emergency withdraw function not available on contract');
+                    }
+                } else {
+                    throw new Error('Blockchain interface not available');
                 }
-                throw new Error('Emergency withdrawal functionality not available');
+            } catch (error) {
+                console.error('Emergency withdrawal error:', error);
+                showNotification(`❌ Emergency withdrawal failed: ${error.message}`, 'error');
             }
-        } catch (error) {
-            console.error('Emergency withdrawal error:', error);
-            showNotification(`❌ Emergency withdrawal failed: ${error.message}`, 'error');
         }
     }
     
     checkCollateral() {
-        try {
-            showNotification('📊 Checking collateral status...', 'info');
-            
-            // Use existing collateral checking interface
-            if (window.checkCollateralStatus && typeof window.checkCollateralStatus === 'function') {
-                const status = window.checkCollateralStatus();
-                showNotification(`✅ Collateral status: ${status}`, 'success');
-            } else if (window.blockchainInterface && typeof window.blockchainInterface.checkCollateral === 'function') {
-                const status = window.blockchainInterface.checkCollateral();
-                showNotification(`✅ Collateral status: ${status}`, 'success');
-            } else {
-                // Fallback - trigger existing collateral check
-                const collateralBtn = document.getElementById('checkCollateralBtn');
-                if (collateralBtn) {
-                    collateralBtn.click();
-                    return;
-                }
-                showNotification('✅ Collateral status: Healthy (estimated)', 'success');
+        if (window.ownerManager && typeof window.ownerManager.checkCollateralStatus === 'function') {
+            window.ownerManager.checkCollateralStatus();
+        } else {
+            try {
+                showNotification('📊 Checking collateral status...', 'info');
+                
+                // Fallback - reload owner data
+                this.loadOwnerData();
+                showNotification('✅ Collateral status updated', 'success');
+            } catch (error) {
+                console.error('Collateral check error:', error);
+                showNotification(`⚠️ Collateral check failed: ${error.message}`, 'warning');
             }
-        } catch (error) {
-            console.error('Collateral check error:', error);
-            showNotification(`⚠️ Collateral check failed: ${error.message}`, 'warning');
         }
     }
     
     pauseContract() {
-        try {
-            showNotification('⏸️ Pausing contract...', 'warning');
-            
-            // Use existing contract pause interface
-            if (window.pauseContract && typeof window.pauseContract === 'function') {
-                window.pauseContract();
-                showNotification('✅ Contract paused successfully!', 'success');
-                document.getElementById('contractStatus').textContent = 'Paused';
-            } else if (window.blockchainInterface && typeof window.blockchainInterface.pauseContract === 'function') {
-                window.blockchainInterface.pauseContract();
-                showNotification('✅ Contract paused successfully!', 'success');
-                document.getElementById('contractStatus').textContent = 'Paused';
-            } else {
-                // Fallback - trigger existing pause function
-                const pauseBtn = document.getElementById('pauseContractBtn');
-                if (pauseBtn) {
-                    pauseBtn.click();
-                    return;
+        if (window.ownerManager && typeof window.ownerManager.pauseContract === 'function') {
+            window.ownerManager.pauseContract();
+        } else {
+            try {
+                showNotification('⏸️ Pausing contract...', 'warning');
+                
+                // Fallback implementation
+                if (window.blockchainInterface && window.blockchainInterface.contract && window.blockchainInterface.contract.methods.pause) {
+                    window.blockchainInterface.contract.methods.pause().send({
+                        from: window.blockchainInterface.account
+                    }).then(result => {
+                        showNotification(`✅ Contract paused successfully! TX: ${result.transactionHash}`, 'success');
+                        const statusElement = document.getElementById('contractStatus');
+                        if (statusElement) statusElement.textContent = 'Paused';
+                    }).catch(error => {
+                        showNotification(`❌ Failed to pause contract: ${error.message}`, 'error');
+                    });
+                } else {
+                    throw new Error('Pause function not available on contract');
                 }
-                throw new Error('Contract pause functionality not available');
+            } catch (error) {
+                console.error('Contract pause error:', error);
+                showNotification(`❌ Failed to pause contract: ${error.message}`, 'error');
             }
-        } catch (error) {
-            console.error('Contract pause error:', error);
-            showNotification(`❌ Failed to pause contract: ${error.message}`, 'error');
         }
     }
     
     // Check if user is owner and show/hide owner panel
     async checkOwnerStatus() {
-        if (!this.walletConnected || !this.account) return;
+        if (!this.walletConnected || !this.account) {
+            // No wallet connected - hide owner panel
+            const ownerPanel = document.getElementById('ownerPanel');
+            if (ownerPanel) {
+                ownerPanel.style.display = 'none';
+            }
+            return;
+        }
         
         try {
+            console.log(`🔒 Checking owner status for: ${this.account}`);
+            
             let isOwner = false;
             
-            // Use existing owner checking interface
-            if (window.blockchainInterface && typeof window.blockchainInterface.checkOwnership === 'function') {
-                isOwner = await window.blockchainInterface.checkOwnership();
-            } else if (window.checkOwnership && typeof window.checkOwnership === 'function') {
-                isOwner = await window.checkOwnership();
+            // Use existing owner management for ownership check
+            if (window.ownerManager && typeof window.ownerManager.checkOwnerStatus === 'function') {
+                // Force re-check with current account
+                window.ownerManager.isOwner = false; // Reset cached status
+                isOwner = await window.ownerManager.checkOwnerStatus();
             } else {
                 // Fallback - check contract owner directly
                 isOwner = await this.checkContractOwner();
-            }
-            
-            const ownerPanel = document.getElementById('ownerPanel');
-            if (ownerPanel) {
-                ownerPanel.style.display = isOwner ? 'block' : 'none';
-            }
-            
-            // Load owner data if user is owner
-            if (isOwner) {
-                await this.loadOwnerData();
+                
+                const ownerPanel = document.getElementById('ownerPanel');
+                if (ownerPanel) {
+                    ownerPanel.style.display = isOwner ? 'block' : 'none';
+                }
+                
+                if (isOwner) {
+                    console.log('✅ Owner status confirmed - loading owner data');
+                    await this.loadOwnerData();
+                } else {
+                    console.log('❌ Not contract owner - owner panel hidden');
+                }
             }
             
         } catch (error) {
             console.error('Owner status check error:', error);
-            // Hide panel on error for security
+            // On error, always hide owner panel for security
             const ownerPanel = document.getElementById('ownerPanel');
             if (ownerPanel) {
                 ownerPanel.style.display = 'none';
@@ -848,21 +1425,38 @@ Need help? Just ask Mr. Happy!
     
     async checkContractOwner() {
         try {
-            if (!this.web3 || !window.AXZORA_CONFIG) return false;
+            if (!this.web3 || !this.account || !window.AXZORA_CONFIG) {
+                console.log('❌ Missing requirements for owner check');
+                return false;
+            }
             
-            // Create contract instance
-            const contract = new this.web3.eth.Contract([
-                {
-                    "constant": true,
-                    "inputs": [],
-                    "name": "owner",
-                    "outputs": [{"name": "", "type": "address"}],
-                    "type": "function"
-                }
-            ], window.AXZORA_CONFIG.HP_TOKEN_ADDRESS);
+            console.log(`🔍 Checking contract owner for account: ${this.account}`);
+            
+            // Use blockchain interface contract if available
+            let contract;
+            if (window.blockchainInterface && window.blockchainInterface.contract) {
+                contract = window.blockchainInterface.contract;
+            } else {
+                // Create contract instance
+                contract = new this.web3.eth.Contract([
+                    {
+                        "constant": true,
+                        "inputs": [],
+                        "name": "owner",
+                        "outputs": [{"name": "", "type": "address"}],
+                        "type": "function"
+                    }
+                ], window.AXZORA_CONFIG.HP_TOKEN_ADDRESS);
+            }
             
             const contractOwner = await contract.methods.owner().call();
-            return contractOwner.toLowerCase() === this.account.toLowerCase();
+            const isOwner = contractOwner.toLowerCase() === this.account.toLowerCase();
+            
+            console.log(`📋 Contract owner: ${contractOwner}`);
+            console.log(`👤 Current account: ${this.account}`);
+            console.log(`🔒 Is owner: ${isOwner}`);
+            
+            return isOwner;
             
         } catch (error) {
             console.error('Contract owner check error:', error);
@@ -872,30 +1466,41 @@ Need help? Just ask Mr. Happy!
     
     async loadOwnerData() {
         try {
-            // Load available profits
-            if (window.blockchainInterface && typeof window.blockchainInterface.getAvailableProfits === 'function') {
-                const profits = await window.blockchainInterface.getAvailableProfits();
-                const profitsElement = document.getElementById('availableProfits');
-                if (profitsElement) {
-                    profitsElement.textContent = `${parseFloat(profits).toFixed(6)} USDT`;
-                }
-                
-                // Update modal profits display
-                const modalProfits = document.getElementById('modalAvailableProfits');
-                if (modalProfits) {
-                    modalProfits.textContent = `${parseFloat(profits).toFixed(6)} USDT`;
+            // Use existing owner management for loading data
+            if (window.ownerManager && typeof window.ownerManager.loadOwnerData === 'function') {
+                await window.ownerManager.loadOwnerData();
+            } else {
+                // Fallback to blockchain interface methods
+                if (window.blockchainInterface && window.blockchainInterface.contract) {
+                    const info = await window.blockchainInterface.contract.methods.getContractInfo().call();
+                    
+                    // Format collateral amount
+                    const collateralStr = info.totalCollateralUSDT.toString();
+                    const rawCollateral = parseFloat(collateralStr);
+                    
+                    let totalCollateralFormatted;
+                    if (rawCollateral > 1e18) {
+                        totalCollateralFormatted = (rawCollateral / 1e18).toFixed(6);
+                    } else if (rawCollateral > 1e6) {
+                        totalCollateralFormatted = (rawCollateral / 1e6).toFixed(6);
+                    } else {
+                        totalCollateralFormatted = rawCollateral.toFixed(6);
+                    }
+                    
+                    // Update UI elements
+                    const collateralElement = document.getElementById('totalCollateral');
+                    if (collateralElement) {
+                        collateralElement.textContent = `${totalCollateralFormatted} USDT`;
+                    }
+                    
+                    // Calculate profits (simplified)
+                    const availableProfits = Math.max(0, parseFloat(totalCollateralFormatted) * 0.1); // Estimate
+                    const profitsElement = document.getElementById('availableProfits');
+                    if (profitsElement) {
+                        profitsElement.textContent = `${availableProfits.toFixed(6)} USDT`;
+                    }
                 }
             }
-            
-            // Load total collateral
-            if (window.blockchainInterface && typeof window.blockchainInterface.getTotalCollateral === 'function') {
-                const collateral = await window.blockchainInterface.getTotalCollateral();
-                const collateralElement = document.getElementById('totalCollateral');
-                if (collateralElement) {
-                    collateralElement.textContent = `${parseFloat(collateral).toFixed(2)} USDT`;
-                }
-            }
-            
         } catch (error) {
             console.error('Error loading owner data:', error);
         }
@@ -909,25 +1514,62 @@ Need help? Just ask Mr. Happy!
             return;
         }
         
+        // Comprehensive wallet validation
+        const isValid = await this.validateWalletConnection();
+        if (!isValid) {
+            console.log('⚠️ Wallet validation failed for minting');
+            showNotification('❌ Wallet connection invalid. Please reconnect your MetaMask wallet.', 'error');
+            return;
+        }
+        
         try {
+            console.log('🔄 Syncing interfaces before minting...');
+            // Sync blockchain interface with current wallet state
+            await this.syncBlockchainInterface();
+            
             showNotification(`🏭 Minting ${amount} HP tokens...`, 'info');
             this.closeMintModal();
             
-            // Use existing mint interface
-            if (window.mintTokens && typeof window.mintTokens === 'function') {
-                await window.mintTokens(amount);
-                showNotification(`✅ Successfully minted ${amount} HP tokens!`, 'success');
-            } else if (window.blockchainInterface && typeof window.blockchainInterface.mintTokens === 'function') {
-                await window.blockchainInterface.mintTokens(amount);
-                showNotification(`✅ Successfully minted ${amount} HP tokens!`, 'success');
-            } else {
+            // Use existing mint interface with retry logic
+            let success = false;
+            
+            // First try blockchain interface
+            if (window.blockchainInterface && typeof window.blockchainInterface.mintTokens === 'function') {
+                try {
+                    // Ensure account is properly set
+                    window.blockchainInterface.account = this.account;
+                    window.blockchainInterface.isConnected = true;
+                    window.blockchainInterface.web3 = this.web3;
+                    
+                    await window.blockchainInterface.mintTokens(amount);
+                    success = true;
+                    showNotification(`✅ Successfully minted ${amount} HP tokens!`, 'success');
+                } catch (interfaceError) {
+                    console.warn('Blockchain interface mint failed:', interfaceError);
+                }
+            }
+            
+            // Then try global function if the first attempt failed
+            if (!success && window.mintTokens && typeof window.mintTokens === 'function') {
+                try {
+                    await window.mintTokens(amount);
+                    success = true;
+                    showNotification(`✅ Successfully minted ${amount} HP tokens!`, 'success');
+                } catch (globalError) {
+                    console.warn('Global mint function failed:', globalError);
+                }
+            }
+            
+            // Last resort - UI button
+            if (!success) {
                 // Fallback - trigger existing mint modal if available
                 const mintBtn = document.querySelector('[data-action="mint"]');
                 if (mintBtn && !mintBtn.disabled) {
+                    console.log('🔄 Trying UI button for minting...');
                     mintBtn.click();
                     return;
                 }
-                throw new Error('Mint functionality not available');
+                throw new Error('No available mint functionality found');
             }
             
             // Reload balances after successful mint
@@ -1096,19 +1738,19 @@ function showNotification(message, type = 'info') {
 let app;
 
 function requestLocation() {
-    app.requestLocation();
+    if (app) app.requestLocation();
 }
 
 function requestFingerprint() {
-    app.requestFingerprint();
+    if (app) app.requestFingerprint();
 }
 
 function requestCamera() {
-    app.requestCamera();
+    if (app) app.requestCamera();
 }
 
 function enterApp() {
-    app.enterApp();
+    if (app) app.enterApp();
 }
 
 function skipPermissions() {
@@ -1166,104 +1808,112 @@ function fallbackSkipPermissions() {
 }
 
 function connectWallet() {
-    app.connectWallet();
+    if (app && app.connectWallet) {
+        app.connectWallet();
+    }
+}
+
+function disconnectWallet() {
+    if (app && app.disconnectWallet) {
+        app.disconnectWallet();
+    }
 }
 
 function toggleSidebar() {
-    app.toggleSidebar();
+    if (app && app.toggleSidebar) app.toggleSidebar();
 }
 
 function toggleVoice() {
-    app.toggleVoice();
+    if (app && app.toggleVoice) app.toggleVoice();
 }
 
 function openMintModal() {
-    app.openMintModal();
+    if (app && app.openMintModal) app.openMintModal();
 }
 
 function closeMintModal() {
-    app.closeMintModal();
+    if (app && app.closeMintModal) app.closeMintModal();
 }
 
 function openBurnModal() {
-    app.openBurnModal();
+    if (app && app.openBurnModal) app.openBurnModal();
 }
 
 function closeBurnModal() {
-    app.closeBurnModal();
+    if (app && app.closeBurnModal) app.closeBurnModal();
 }
 
 function openTransferModal() {
-    app.openTransferModal();
+    if (app && app.openTransferModal) app.openTransferModal();
 }
 
 function closeTransferModal() {
-    app.closeTransferModal();
+    if (app && app.closeTransferModal) app.closeTransferModal();
 }
 
 function openStakingModal() {
-    app.openStakingModal();
+    if (app && app.openStakingModal) app.openStakingModal();
 }
 
 function closeStakingModal() {
-    app.closeStakingModal();
+    if (app && app.closeStakingModal) app.closeStakingModal();
 }
 
 function showHelp() {
-    app.showHelp();
+    if (app && app.showHelp) app.showHelp();
 }
 
 function executeMint() {
-    app.executeMint();
+    if (app && app.executeMint) app.executeMint();
 }
 
 function executeBurn() {
-    app.executeBurn();
+    if (app && app.executeBurn) app.executeBurn();
 }
 
 function executeTransfer() {
-    app.executeTransfer();
+    if (app && app.executeTransfer) app.executeTransfer();
 }
 
 function executeStaking() {
-    app.executeStaking();
+    if (app && app.executeStaking) app.executeStaking();
 }
 
 // Owner management functions
 function openWithdrawProfitsModal() {
-    if (app) app.openWithdrawProfitsModal();
+    if (app && app.openWithdrawProfitsModal) app.openWithdrawProfitsModal();
 }
 
 function closeWithdrawProfitsModal() {
-    if (app) app.closeWithdrawProfitsModal();
+    if (app && app.closeWithdrawProfitsModal) app.closeWithdrawProfitsModal();
 }
 
 function openEmergencyModal() {
-    if (app) app.openEmergencyModal();
+    if (app && app.openEmergencyModal) app.openEmergencyModal();
 }
 
 function closeEmergencyModal() {
-    if (app) app.closeEmergencyModal();
+    if (app && app.closeEmergencyModal) app.closeEmergencyModal();
 }
 
 function setMaxProfits() {
-    if (app) app.setMaxProfits();
+    if (app && app.setMaxProfits) app.setMaxProfits();
 }
 
 function executeWithdrawProfits() {
-    if (app) app.executeWithdrawProfits();
+    if (app && app.executeWithdrawProfits) app.executeWithdrawProfits();
 }
 
 function executeEmergencyWithdraw() {
-    if (app) app.executeEmergencyWithdraw();
+    if (app && app.executeEmergencyWithdraw) app.executeEmergencyWithdraw();
 }
 
 function checkCollateral() {
-    if (app) app.checkCollateral();
+    if (app && app.checkCollateral) app.checkCollateral();
 }
 
 function pauseContract() {
-    if (app) app.pauseContract();
+    if (app && app.pauseContract) app.pauseContract();
 }
 
 // Initialize app when DOM is loaded
