@@ -654,6 +654,160 @@ body {
     color: var(--text-primary);
 }
 
+/* Owner Management Panel */
+.owner-management {
+    padding: 24px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    background: rgba(25, 118, 210, 0.02);
+    border-radius: var(--border-radius);
+    margin: 16px;
+}
+
+.owner-management h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.owner-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.action-btn.profit-btn {
+    background: linear-gradient(135deg, var(--success-color), #66bb6a);
+    color: white;
+    border: none;
+}
+
+.action-btn.emergency-btn {
+    background: linear-gradient(135deg, var(--error-color), #ef5350);
+    color: white;
+    border: none;
+}
+
+.action-btn.collateral-btn {
+    background: linear-gradient(135deg, var(--primary-color), #42a5f5);
+    color: white;
+    border: none;
+}
+
+.action-btn.pause-btn {
+    background: linear-gradient(135deg, var(--warning-color), #ffa726);
+    color: white;
+    border: none;
+}
+
+.btn-icon {
+    font-size: 1rem;
+}
+
+.btn-text {
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+.owner-status {
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: var(--border-radius);
+    padding: 16px;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.status-item:last-child {
+    margin-bottom: 0;
+}
+
+.status-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.status-value {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-family: var(--font-mono);
+}
+
+/* Warning box for emergency modal */
+.emergency-warning {
+    margin-bottom: 20px;
+}
+
+.warning-box {
+    background: rgba(244, 67, 54, 0.1);
+    border: 2px solid rgba(244, 67, 54, 0.3);
+    border-radius: var(--border-radius);
+    padding: 16px;
+    text-align: center;
+}
+
+.warning-box h4 {
+    color: var(--error-color);
+    margin-bottom: 8px;
+    font-size: 1.1rem;
+}
+
+.warning-box p {
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    font-size: 0.95rem;
+}
+
+.profit-info {
+    margin-bottom: 20px;
+}
+
+.max-btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    margin-left: 8px;
+    transition: var(--transition);
+}
+
+.max-btn:hover {
+    background: #1565c0;
+}
+
 /* Modals */
 .modal {
     position: fixed;

@@ -229,6 +229,44 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Owner Management Panel -->
+            <div class="owner-management" id="ownerPanel" style="display: none;">
+                <h4>🔑 Owner Functions</h4>
+                <div class="owner-actions">
+                    <button class="action-btn profit-btn" onclick="openWithdrawProfitsModal()">
+                        <span class="btn-icon">💰</span>
+                        <span class="btn-text">Withdraw Profits</span>
+                    </button>
+                    <button class="action-btn emergency-btn" onclick="openEmergencyModal()">
+                        <span class="btn-icon">🆘</span>
+                        <span class="btn-text">Emergency Withdraw</span>
+                    </button>
+                    <button class="action-btn collateral-btn" onclick="checkCollateral()">
+                        <span class="btn-icon">📊</span>
+                        <span class="btn-text">Check Collateral</span>
+                    </button>
+                    <button class="action-btn pause-btn" onclick="pauseContract()">
+                        <span class="btn-icon">⏸️</span>
+                        <span class="btn-text">Pause Contract</span>
+                    </button>
+                </div>
+                
+                <div class="owner-status">
+                    <div class="status-item">
+                        <span class="status-label">Available Profits:</span>
+                        <span class="status-value" id="availableProfits">Loading...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Total Collateral:</span>
+                        <span class="status-value" id="totalCollateral">Loading...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Contract Status:</span>
+                        <span class="status-value" id="contractStatus">Active</span>
+                    </div>
+                </div>
+            </div>
         </aside>
     </div>
 
@@ -310,6 +348,58 @@
                     <div class="input-info">Expected reward: <span id="expectedReward">0.00 HP</span></div>
                 </div>
                 <button class="modal-btn primary" onclick="executeStaking()">Stake Tokens</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Owner Management Modals -->
+    
+    <!-- Withdraw Profits Modal -->
+    <div id="withdrawProfitsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>💰 Withdraw Profits</h2>
+                <button class="close-btn" onclick="closeWithdrawProfitsModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="profit-info">
+                    <div class="info-item">
+                        <span>Available Profits:</span>
+                        <span id="modalAvailableProfits">0.00 USDT</span>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Amount to Withdraw (USDT)</label>
+                    <input type="number" id="profitAmount" placeholder="0.00" step="0.000001">
+                    <button class="max-btn" onclick="setMaxProfits()">MAX</button>
+                </div>
+                <button class="modal-btn primary" onclick="executeWithdrawProfits()">Withdraw Profits</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Emergency Withdraw Modal -->
+    <div id="emergencyWithdrawModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🆘 Emergency Withdraw</h2>
+                <button class="close-btn" onclick="closeEmergencyModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="emergency-warning">
+                    <div class="warning-box">
+                        <h4>⚠️ WARNING</h4>
+                        <p>Emergency withdrawal will withdraw <strong>ALL USDT</strong> from the contract.</p>
+                        <p>Use only in emergency situations!</p>
+                    </div>
+                </div>
+                
+                <div class="emergency-methods">
+                    <button class="modal-btn danger" onclick="executeEmergencyWithdraw()">
+                        <span class="btn-icon">🆘</span>
+                        <span class="btn-text">Execute Emergency Withdraw</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

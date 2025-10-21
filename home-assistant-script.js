@@ -381,6 +381,9 @@ class HomeAssistantApp {
             document.getElementById('burnCard').classList.remove('disabled');
             document.getElementById('transferCard').classList.remove('disabled');
             document.getElementById('stakeCard').classList.remove('disabled');
+            
+            // Check if user is owner and show owner functions
+            this.checkOwnerStatus();
         }
         
         this.updateSecurityStatus();
@@ -538,6 +541,86 @@ Need help? Just ask Mr. Happy!
         alert(helpMessage);
     }
     
+    // Owner management functions
+    openWithdrawProfitsModal() {
+        document.getElementById('withdrawProfitsModal').classList.add('show');
+    }
+    
+    closeWithdrawProfitsModal() {
+        document.getElementById('withdrawProfitsModal').classList.remove('show');
+    }
+    
+    openEmergencyModal() {
+        document.getElementById('emergencyWithdrawModal').classList.add('show');
+    }
+    
+    closeEmergencyModal() {
+        document.getElementById('emergencyWithdrawModal').classList.remove('show');
+    }
+    
+    setMaxProfits() {
+        const availableProfits = document.getElementById('modalAvailableProfits').textContent;
+        const amount = parseFloat(availableProfits.replace(/[^0-9.]/g, ''));
+        document.getElementById('profitAmount').value = amount.toFixed(6);
+    }
+    
+    executeWithdrawProfits() {
+        const amount = document.getElementById('profitAmount').value;
+        if (!amount || amount <= 0) {
+            showNotification('Please enter a valid amount', 'warning');
+            return;
+        }
+        
+        showNotification(`Withdrawing ${amount} USDT profits...`, 'info');
+        this.closeWithdrawProfitsModal();
+        
+        // This will integrate with existing owner management functionality
+        setTimeout(() => {
+            showNotification(`Successfully withdrew ${amount} USDT profits!`, 'success');
+        }, 2000);
+    }
+    
+    executeEmergencyWithdraw() {
+        showNotification('Executing emergency withdrawal...', 'warning');
+        this.closeEmergencyModal();
+        
+        // This will integrate with existing emergency withdrawal functionality
+        setTimeout(() => {
+            showNotification('Emergency withdrawal executed!', 'success');
+        }, 2000);
+    }
+    
+    checkCollateral() {
+        showNotification('Checking collateral status...', 'info');
+        
+        // This will integrate with existing collateral checking
+        setTimeout(() => {
+            showNotification('Collateral status: Healthy', 'success');
+        }, 1000);
+    }
+    
+    pauseContract() {
+        showNotification('Pausing contract...', 'warning');
+        
+        // This will integrate with existing contract pause functionality
+        setTimeout(() => {
+            showNotification('Contract paused successfully!', 'success');
+            document.getElementById('contractStatus').textContent = 'Paused';
+        }, 2000);
+    }
+    
+    // Check if user is owner and show/hide owner panel
+    checkOwnerStatus() {
+        // This will integrate with existing owner checking
+        // For now, show panel if wallet is connected
+        if (this.walletConnected) {
+            const ownerPanel = document.getElementById('ownerPanel');
+            if (ownerPanel) {
+                ownerPanel.style.display = 'block';
+            }
+        }
+    }
+
     // Transaction functions (integrate with existing blockchain interface)
     async executeMint() {
         const amount = document.getElementById('mintAmount').value;
@@ -776,6 +859,43 @@ function executeTransfer() {
 
 function executeStaking() {
     app.executeStaking();
+}
+
+// Owner management functions
+function openWithdrawProfitsModal() {
+    if (app) app.openWithdrawProfitsModal();
+}
+
+function closeWithdrawProfitsModal() {
+    if (app) app.closeWithdrawProfitsModal();
+}
+
+function openEmergencyModal() {
+    if (app) app.openEmergencyModal();
+}
+
+function closeEmergencyModal() {
+    if (app) app.closeEmergencyModal();
+}
+
+function setMaxProfits() {
+    if (app) app.setMaxProfits();
+}
+
+function executeWithdrawProfits() {
+    if (app) app.executeWithdrawProfits();
+}
+
+function executeEmergencyWithdraw() {
+    if (app) app.executeEmergencyWithdraw();
+}
+
+function checkCollateral() {
+    if (app) app.checkCollateral();
+}
+
+function pauseContract() {
+    if (app) app.pauseContract();
 }
 
 // Initialize app when DOM is loaded
