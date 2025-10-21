@@ -1,0 +1,12 @@
+backend/
+node_modules/
+.git/
+*.py
+*.bat
+server.py.backup
+config.js.backup
+DEPLOYMENT_INFO.md
+README.md
+SETUP_BSC_INTEGRATION.md
+MINTING_TEST_CHECKLIST.md
+

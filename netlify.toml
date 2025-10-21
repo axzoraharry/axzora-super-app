@@ -1,0 +1,16 @@
+[build]
+  publish = "."
+  command = "echo 'No build required'"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "*"
+    Permissions-Policy = "camera=*, microphone=*, geolocation=*"
