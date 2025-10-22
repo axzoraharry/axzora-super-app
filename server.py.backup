@@ -40,7 +40,7 @@ def main():
     # Try to find an available port
     for port in range(8000, 8010):
         try:
-            with socketserver.TCPServer(("0.0.0.0", port), CORSHTTPRequestHandler) as httpd:
+            with socketserver.TCPServer(("", port), CORSHTTPRequestHandler) as httpd:
                 PORT = port
                 break
         except OSError:
@@ -72,15 +72,14 @@ def main():
     print("\n🔧 Press Ctrl+C to stop the server")
     print("="*60)
     
-    # Browser auto-open disabled for server deployment
-    # browser_thread = threading.Thread(target=open_browser, args=(PORT,))
-    # browser_thread.daemon = True
-    # browser_thread.start()
+    # Start browser opening in a separate thread
+    browser_thread = threading.Thread(target=open_browser, args=(PORT,))
+    browser_thread.daemon = True
+    browser_thread.start()
     
     try:
-        # Start the server (bind to all interfaces for public access)
-        with socketserver.TCPServer(("0.0.0.0", PORT), CORSHTTPRequestHandler) as httpd:
-            print(f"\n✅ Server is now running and accessible!")
+        # Start the server
+        with socketserver.TCPServer(("", PORT), CORSHTTPRequestHandler) as httpd:
             httpd.serve_forever()
     except KeyboardInterrupt:
         print("\n\n🛑 Server stopped by user")
