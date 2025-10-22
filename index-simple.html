@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Axzora Super App - AI Assistant</title>
+    <link rel="stylesheet" href="home-assistant-styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="gas-fix.js"></script>
+</head>
+<body>
+    <!-- Permission Request Screen -->
+    <div id="permissionScreen" class="permission-screen">
+        <div class="permission-container">
+            <div class="app-logo">
+                <div class="logo-icon">🏠</div>
+                <h1>Axzora Home Assistant</h1>
+                <p>Your Smart Crypto Companion</p>
+            </div>
+            
+            <div class="permissions-list">
+                <div class="permission-item" id="locationPermission">
+                    <div class="permission-icon">📍</div>
+                    <div class="permission-content">
+                        <h3>Location Access</h3>
+                        <p>For personalized services and security</p>
+                    </div>
+                    <button class="permission-btn" onclick="requestLocation()">Allow</button>
+                </div>
+                
+                <div class="permission-item" id="fingerprintPermission">
+                    <div class="permission-icon">👆</div>
+                    <div class="permission-content">
+                        <h3>Biometric Authentication</h3>
+                        <p>Secure access with fingerprint</p>
+                    </div>
+                    <button class="permission-btn" onclick="requestFingerprint()">Enable</button>
+                </div>
+                
+                <div class="permission-item" id="cameraPermission">
+                    <div class="permission-icon">📷</div>
+                    <div class="permission-content">
+                        <h3>Camera Access</h3>
+                        <p>For face recognition and QR scanning</p>
+                    </div>
+                    <button class="permission-btn" onclick="requestCamera()">Allow</button>
+                </div>
+            </div>
+            
+            <div class="permission-actions">
+                <button id="continueBtn" class="continue-btn" onclick="enterApp()" disabled>
+                    Continue to App
+                </button>
+                <button id="skipBtn" class="skip-btn" onclick="skipPermissions()">
+                    Skip All & Continue
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="mainApp" class="main-app" style="display: none;">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="app-title">
+                    <span class="title-icon">🏠</span>
+                    <span class="title-text">Axzora Assistant</span>
+                </div>
+            </div>
+            
+            <div class="header-center">
+                <div class="status-indicators">
+                    <div class="status-dot active" title="Mr. Happy Online"></div>
+                    <div class="status-dot" id="walletStatus" title="Wallet Status"></div>
+                    <div class="status-dot" id="securityStatus" title="Security Status"></div>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+            </div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <main class="app-main">
+            <!-- Mr. Happy Assistant -->
+            <section class="assistant-section">
+                <div class="mr-happy-container">
+                    <div class="avatar-frame">
+                        <div class="mr-happy-avatar" id="mrHappyAvatar">
+                            <div class="face">
+                                <div class="eyes">
+                                    <div class="eye left-eye">
+                                        <div class="eyeball"></div>
+                                    </div>
+                                    <div class="eye right-eye">
+                                        <div class="eyeball"></div>
+                                    </div>
+                                </div>
+                                <div class="mouth" id="avatarMouth"></div>
+                            </div>
+                        </div>
+                        <div class="pulse-ring" id="pulseRing"></div>
+                    </div>
+                    
+                    <div class="assistant-status">
+                        <h2>Hello! I'm Mr. Happy</h2>
+                        <p id="assistantMessage">Ready to help with your Happy Paisa tokens!</p>
+                    </div>
+                    
+                    <div class="voice-interface">
+                        <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()">
+                            <span class="voice-icon">🎤</span>
+                            <span class="voice-text">Talk to Mr. Happy</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quick Actions Grid -->
+            <section class="actions-grid">
+                <div class="action-card" onclick="connectWallet()">
+                    <div class="card-icon">💳</div>
+                    <div class="card-content">
+                        <h3>Connect Wallet</h3>
+                        <p>Link your crypto wallet</p>
+                    </div>
+                    <div class="card-status" id="walletCardStatus">●</div>
+                </div>
+                
+                <div class="action-card" onclick="openMintModal()" id="mintCard">
+                    <div class="card-icon">🪙</div>
+                    <div class="card-content">
+                        <h3>Mint HP</h3>
+                        <p>Create new tokens</p>
+                    </div>
+                    <div class="card-status">●</div>
+                </div>
+                
+                <div class="action-card" onclick="openBurnModal()" id="burnCard">
+                    <div class="card-icon">🔥</div>
+                    <div class="card-content">
+                        <h3>Burn HP</h3>
+                        <p>Exchange tokens for USDT</p>
+                    </div>
+                    <div class="card-status">●</div>
+                </div>
+                
+                <div class="action-card" onclick="openTransferModal()" id="transferCard">
+                    <div class="card-icon">📤</div>
+                    <div class="card-content">
+                        <h3>Transfer</h3>
+                        <p>Send HP tokens</p>
+                    </div>
+                    <div class="card-status">●</div>
+                </div>
+                
+                <div class="action-card" onclick="openStakingModal()" id="stakeCard">
+                    <div class="card-icon">🔒</div>
+                    <div class="card-content">
+                        <h3>Stake HP</h3>
+                        <p>Earn 6% APR</p>
+                    </div>
+                    <div class="card-status">●</div>
+                </div>
+                
+                <div class="action-card" onclick="showHelp()">
+                    <div class="card-icon">❓</div>
+                    <div class="card-content">
+                        <h3>Help</h3>
+                        <p>Get assistance</p>
+                    </div>
+                    <div class="card-status">●</div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>Dashboard</h3>
+                <button class="close-sidebar" onclick="toggleSidebar()">×</button>
+            </div>
+            
+            <div class="balance-overview">
+                <div class="balance-card">
+                    <div class="balance-label">HP Balance</div>
+                    <div class="balance-amount" id="hpBalance">0.00</div>
+                    <div class="balance-value" id="hpValue">$0.00</div>
+                </div>
+                
+                <div class="balance-card">
+                    <div class="balance-label">USDT Balance</div>
+                    <div class="balance-amount" id="usdtBalance">0.00</div>
+                    <div class="balance-value" id="usdtValue">$0.00</div>
+                </div>
+                
+                <div class="balance-card">
+                    <div class="balance-label">BNB Balance</div>
+                    <div class="balance-amount" id="bnbBalance">0.00</div>
+                    <div class="balance-value" id="bnbValue">$0.00</div>
+                </div>
+            </div>
+            
+            <div class="recent-activity">
+                <h4>Recent Activity</h4>
+                <div class="activity-list" id="activityList">
+                    <div class="no-activity">Connect wallet to see activity</div>
+                </div>
+            </div>
+            
+            <div class="security-info">
+                <h4>Security Status</h4>
+                <div class="security-items">
+                    <div class="security-item">
+                        <span class="security-icon">📍</span>
+                        <span class="security-text" id="locationStatus">Location: Enabled</span>
+                    </div>
+                    <div class="security-item">
+                        <span class="security-icon">👆</span>
+                        <span class="security-text" id="biometricStatus">Biometric: Active</span>
+                    </div>
+                    <div class="security-item">
+                        <span class="security-icon">🔒</span>
+                        <span class="security-text" id="encryptionStatus">Encryption: Strong</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Owner Management Panel -->
+            <div class="owner-management" id="ownerPanel" style="display: none;">
+                <h4>🔑 Owner Functions</h4>
+                <div class="owner-actions">
+                    <button class="action-btn profit-btn" onclick="openWithdrawProfitsModal()">
+                        <span class="btn-icon">💰</span>
+                        <span class="btn-text">Withdraw Profits</span>
+                    </button>
+                    <button class="action-btn emergency-btn" onclick="openEmergencyModal()">
+                        <span class="btn-icon">🆘</span>
+                        <span class="btn-text">Emergency Withdraw</span>
+                    </button>
+                    <button class="action-btn collateral-btn" onclick="checkCollateral()">
+                        <span class="btn-icon">📊</span>
+                        <span class="btn-text">Check Collateral</span>
+                    </button>
+                    <button class="action-btn pause-btn" onclick="pauseContract()">
+                        <span class="btn-icon">⏸️</span>
+                        <span class="btn-text">Pause Contract</span>
+                    </button>
+                    <button class="action-btn" id="lowerReserveBtn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <span class="btn-icon">📉</span>
+                        <span class="btn-text">Lower Reserve Ratio</span>
+                    </button>
+                </div>
+                
+                <div class="owner-status">
+                    <div class="status-item">
+                        <span class="status-label">Available Profits:</span>
+                        <span class="status-value" id="availableProfits">Loading...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Total Collateral:</span>
+                        <span class="status-value" id="totalCollateral">Loading...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Contract Status:</span>
+                        <span class="status-value" id="contractStatus">Active</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Modals -->
+    <!-- Mint Modal -->
+    <div id="mintModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🪙 Mint HP Tokens</h2>
+                <button class="close-btn" onclick="closeMintModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>HP Amount to Mint</label>
+                    <input type="number" id="mintAmount" placeholder="1.0" step="0.01">
+                    <div class="input-info">Cost: <span id="mintCost">11.00 USDT</span></div>
+                </div>
+                <button class="modal-btn primary" onclick="executeMint()">Mint Tokens</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Burn Modal -->
+    <div id="burnModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔥 Burn HP Tokens</h2>
+                <button class="close-btn" onclick="closeBurnModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>HP Amount to Burn</label>
+                    <input type="number" id="burnAmount" placeholder="1.0" step="0.01">
+                    <div class="input-info">You'll receive: <span id="burnReceive">11.00 USDT</span></div>
+                </div>
+                <button class="modal-btn danger" onclick="executeBurn()">Burn Tokens</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transfer Modal -->
+    <div id="transferModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📤 Transfer HP Tokens</h2>
+                <button class="close-btn" onclick="closeTransferModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>Recipient Address</label>
+                    <input type="text" id="transferAddress" placeholder="0x...">
+                </div>
+                <div class="input-group">
+                    <label>HP Amount</label>
+                    <input type="number" id="transferAmount" placeholder="1.0" step="0.01">
+                </div>
+                <button class="modal-btn primary" onclick="executeTransfer()">Send Tokens</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Staking Modal -->
+    <div id="stakingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔒 Stake HP Tokens</h2>
+                <button class="close-btn" onclick="closeStakingModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="staking-info">
+                    <div class="info-item">
+                        <span>APR: 6%</span>
+                        <span>Lock Period: 30 days</span>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>HP Amount to Stake</label>
+                    <input type="number" id="stakeAmount" placeholder="1.0" step="0.01">
+                    <div class="input-info">Expected reward: <span id="expectedReward">0.00 HP</span></div>
+                </div>
+                <button class="modal-btn primary" onclick="executeStaking()">Stake Tokens</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Owner Management Modals -->
+    
+    <!-- Withdraw Profits Modal -->
+    <div id="withdrawProfitsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>💰 Withdraw Profits</h2>
+                <button class="close-btn" onclick="closeWithdrawProfitsModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="profit-info">
+                    <div class="info-item">
+                        <span>Total HP Supply:</span>
+                        <span id="modalTotalHP">0.00 HP</span>
+                    </div>
+                    <div class="info-item">
+                        <span>Total USDT Collateral:</span>
+                        <span id="modalTotalUSDT">0.00 USDT</span>
+                    </div>
+                    <div class="info-item">
+                        <span>Available Profits:</span>
+                        <span id="modalAvailableProfits">0.00 USDT</span>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Amount to Withdraw (USDT)</label>
+                    <input type="number" id="profitAmount" placeholder="0.00" step="0.000001">
+                    <button class="max-btn" onclick="setMaxProfits()">MAX</button>
+                </div>
+                <div class="modal-actions">
+                    <button class="modal-btn primary" id="executeProfitWithdraw" onclick="executeWithdrawProfits()">Withdraw Specific Amount</button>
+                    <button class="modal-btn secondary" id="withdrawAllProfits" onclick="window.ownerManager?.withdrawAllProfits()">Withdraw All</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Emergency Withdraw Modal -->
+    <div id="emergencyWithdrawModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🆘 Emergency Withdraw</h2>
+                <button class="close-btn" onclick="closeEmergencyModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="emergency-warning">
+                    <div class="warning-box">
+                        <h4>⚠️ WARNING</h4>
+                        <p>Emergency withdrawal will withdraw <strong>ALL USDT</strong> from the contract.</p>
+                        <p>Use only in emergency situations!</p>
+                    </div>
+                </div>
+                
+                <div class="emergency-methods">
+                    <button class="modal-btn danger" onclick="executeEmergencyWithdraw('emergencyWithdraw')">
+                        <span class="btn-icon">🆘</span>
+                        <span class="btn-text">Emergency Withdraw</span>
+                    </button>
+                    <button class="modal-btn danger" onclick="executeEmergencyWithdraw('pauseAndWithdraw')">
+                        <span class="btn-icon">⏸️</span>
+                        <span class="btn-text">Pause & Withdraw All</span>
+                    </button>
+                    <button class="modal-btn warning" onclick="executeEmergencyWithdraw('pauseOnly')">
+                        <span class="btn-icon">⏸️</span>
+                        <span class="btn-text">Pause Contract Only</span>
+                    </button>
+                </div>
+                
+                <!-- Emergency Confirmation -->
+                <div id="emergencyConfirmation" style="display: none; margin-top: 20px; padding: 15px; background: #ff4444; color: white; border-radius: 5px;">
+                    <h4>⚠️ FINAL CONFIRMATION</h4>
+                    <p id="confirmationText">Are you sure?</p>
+                    <div style="margin-top: 10px;">
+                        <button id="finalConfirmBtn" class="modal-btn danger">Yes, Execute</button>
+                        <button onclick="window.ownerManager?.cancelEmergencyWithdraw()" class="modal-btn secondary">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications -->
+    <div id="notifications" class="notifications"></div>
+
+    <!-- Scripts -->
+    <script src="config.js"></script>
+    <script src="js/console-fixes.js"></script>
+    <script src="js/wallet-security-fix.js"></script>
+    <script src="js/blockchain-interface.js"></script>
+    <script src="js/mint-burn-interface.js"></script>
+    <script src="js/transfer-interface.js"></script>
+    <script src="js/staking-interface.js"></script>
+    <script src="js/owner-management.js"></script>
+    <script src="js/mr-happy-assistant.js"></script>
+    <script src="home-assistant-script.js"></script>
+</body>
+</html>
