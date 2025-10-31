@@ -1,0 +1,222 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # Home Assistant - Smart Home Orchestration
+  # ============================================
+  homeassistant:
+    container_name: satyug-homeassistant
+    image: ghcr.io/home-assistant/home-assistant:stable
+    volumes:
+      - ./homeassistant/config:/config
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    environment:
+      - TZ=Asia/Kolkata
+    ports:
+      - "8123:8123"
+    labels:
+      - "satyug.service=homeassistant"
+      - "satyug.description=Smart home and IoT orchestration"
+
+  # ============================================
+  # Odoo - Enterprise Resource Planning
+  # ============================================
+  odoo-db:
+    container_name: satyug-odoo-db
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=satyug
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD=${ODOO_DB_PASSWORD:-odoo}
+    volumes:
+      - odoo-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    labels:
+      - "satyug.service=odoo-database"
+
+  odoo:
+    container_name: satyug-odoo
+    image: odoo:17.0
+    depends_on:
+      - odoo-db
+    ports:
+      - "8069:8069"
+    environment:
+      - HOST=odoo-db
+      - USER=odoo
+      - PASSWORD=${ODOO_DB_PASSWORD:-odoo}
+    volumes:
+      - odoo-data:/var/lib/odoo
+      - ./odoo/addons:/mnt/extra-addons
+      - ./odoo/config:/etc/odoo
+    restart: unless-stopped
+    labels:
+      - "satyug.service=odoo"
+      - "satyug.description=Enterprise resource planning and business management"
+
+  # ============================================
+  # Nextcloud - File Storage & Collaboration
+  # ============================================
+  nextcloud-db:
+    container_name: satyug-nextcloud-db
+    image: mariadb:10.11
+    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    restart: unless-stopped
+    volumes:
+      - nextcloud-db-data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${NEXTCLOUD_DB_ROOT_PASSWORD:-nextcloud_root}
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD:-nextcloud}
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+    labels:
+      - "satyug.service=nextcloud-database"
+
+  nextcloud:
+    container_name: satyug-nextcloud
+    image: nextcloud:latest
+    depends_on:
+      - nextcloud-db
+    ports:
+      - "8080:80"
+    volumes:
+      - nextcloud-data:/var/www/html
+      - ./nextcloud/config:/var/www/html/config
+      - ./nextcloud/custom_apps:/var/www/html/custom_apps
+      - ./nextcloud/data:/var/www/html/data
+    environment:
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD:-nextcloud}
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_HOST=nextcloud-db
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER:-admin}
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD:-admin}
+      - NEXTCLOUD_TRUSTED_DOMAINS=${SERVER:-localhost}
+    restart: unless-stopped
+    labels:
+      - "satyug.service=nextcloud"
+      - "satyug.description=File storage and collaboration platform"
+
+  # ============================================
+  # PostgreSQL - Main Database for Mr. Happy
+  # ============================================
+  postgres:
+    container_name: satyug-postgres
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-satyug_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-satyug_password}
+      - POSTGRES_DB=${POSTGRES_DB:-satyug_universe}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    labels:
+      - "satyug.service=postgres"
+      - "satyug.description=Main database for Satyug Universe"
+
+  # ============================================
+  # Redis - Caching & Message Queue
+  # ============================================
+  redis:
+    container_name: satyug-redis
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    labels:
+      - "satyug.service=redis"
+      - "satyug.description=Caching and message queue"
+
+  # ============================================
+  # Mr. Happy AI Core
+  # ============================================
+  mr-happy:
+    container_name: satyug-mr-happy
+    build:
+      context: .
+      dockerfile: Dockerfile.mr-happy
+    depends_on:
+      - postgres
+      - redis
+      - homeassistant
+      - odoo
+      - nextcloud
+    volumes:
+      - ./mr-happy:/app
+      - ./models:/models
+      - /dev:/dev
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0  # HuskyLens serial connection
+    privileged: true
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Kolkata
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"  # FastAPI endpoint
+    restart: unless-stopped
+    labels:
+      - "satyug.service=mr-happy"
+      - "satyug.description=AI brain of Satyug Universe"
+
+  # ============================================
+  # Nginx - Reverse Proxy
+  # ============================================
+  nginx:
+    container_name: satyug-nginx
+    image: nginx:alpine
+    depends_on:
+      - homeassistant
+      - odoo
+      - nextcloud
+      - mr-happy
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+    labels:
+      - "satyug.service=nginx"
+      - "satyug.description=Reverse proxy and load balancer"
+
+  # ============================================
+  # Portainer - Container Management UI
+  # ============================================
+  portainer:
+    container_name: satyug-portainer
+    image: portainer/portainer-ce:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+    labels:
+      - "satyug.service=portainer"
+      - "satyug.description=Container management interface"
+
+volumes:
+  odoo-db-data:
+  odoo-data:
+  nextcloud-db-data:
+  nextcloud-data:
+  postgres-data:
+  redis-data:
+  portainer-data:
+
+networks:
+  default:
+    name: satyug-network
+    driver: bridge

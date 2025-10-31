@@ -1,0 +1,64 @@
+# Mr. Happy AI Core - Python Dependencies
+
+# Core
+python>=3.9
+
+# Async HTTP
+aiohttp==3.9.1
+aiofiles==23.2.1
+
+# Voice Processing
+deepgram-sdk==3.2.0
+
+# Twilio
+twilio==8.11.0
+
+# OpenAI
+openai==1.6.1
+
+# Odoo Integration
+xmlrpc==1.0.1
+
+# Nextcloud Integration
+webdavclient3==3.14.6
+
+# Serial Communication (HuskyLens)
+pyserial==3.5
+
+# Blockchain
+web3==6.13.0
+eth-account==0.10.0
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.3
+requests==2.31.0
+
+# Logging
+loguru==0.7.2
+
+# Data Processing
+pandas==2.1.4
+numpy==1.26.2
+
+# Geolocation
+geopy==2.4.1
+geocoder==1.38.1
+
+# Home Assistant
+homeassistant-api==4.1.1
+
+# Database
+psycopg2-binary==2.9.9
+redis==5.0.1
+
+# Task Queue
+celery==5.3.4
+
+# API Framework (for exposing Mr. Happy as API)
+fastapi==0.108.0
+uvicorn==0.25.0
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
