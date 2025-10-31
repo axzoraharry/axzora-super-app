@@ -15,6 +15,14 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
 import logging
 
+# Import Lavalink integration
+try:
+    from lavalink_integration import MrHappyAudioSystem
+    LAVALINK_AVAILABLE = True
+except ImportError:
+    LAVALINK_AVAILABLE = False
+    logger.warning("Lavalink integration not available")
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -71,6 +79,10 @@ class IntegrationConfig:
     
     huskylens_port: str = "/dev/ttyUSB0"
     huskylens_baudrate: int = 9600
+    
+    lavalink_host: str = "localhost"
+    lavalink_port: int = 2333
+    lavalink_password: str = "youshallnotpass"
 
 class MrHappyCore:
     """
@@ -82,6 +94,7 @@ class MrHappyCore:
     - Template generation
     - Geolocation awareness
     - Multi-system integration
+    - Audio streaming and music playback (Lavalink)
     """
     
     def __init__(self):
@@ -93,6 +106,14 @@ class MrHappyCore:
         self.context = []
         self.current_location = None
         self.active_tasks = []
+        
+        # Initialize audio system
+        self.audio_system = None
+        if LAVALINK_AVAILABLE:
+            self.audio_system = MrHappyAudioSystem(
+                self.integration_config.lavalink_host,
+                self.integration_config.lavalink_port
+            )
         
         logger.info("🎉 Mr. Happy AI Core initialized")
         logger.info(f"🌍 Server: {self.system_config.server_domain}")
@@ -186,6 +207,7 @@ You are a helpful, intelligent, and emotionally aware assistant that can:
 - Handle files via Nextcloud
 - Process visual information via HuskyLens
 - Execute blockchain transactions via Happy Paisa
+- Play music and control audio via Lavalink
 - Generate project templates and architectures
 - Respond in Hindi and English
 
@@ -234,7 +256,8 @@ You are proactive, autonomous, and always aim for the best outcome."""
             "huskylens": self.process_vision,
             "blockchain": self.execute_blockchain,
             "template": self.generate_template,
-            "geolocation": self.handle_geolocation
+            "geolocation": self.handle_geolocation,
+            "audio": self.control_audio
         }
         
         handler = action_handlers.get(action)
@@ -381,6 +404,68 @@ You are proactive, autonomous, and always aim for the best outcome."""
             return {"success": True, "location": self.current_location}
         except Exception as e:
             logger.error(f"❌ Geolocation error: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def control_audio(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Control audio playback via Lavalink"""
+        if not self.audio_system:
+            return {"success": False, "error": "Audio system not available"}
+        
+        try:
+            operation = params.get('operation')
+            session_id = params.get('session_id')
+            
+            if operation == 'play':
+                query = params.get('query')
+                success = await self.audio_system.play_music(query, session_id)
+                return {"success": success, "message": f"Playing: {query}"}
+            
+            elif operation == 'pause':
+                await self.audio_system.pause_music(session_id)
+                return {"success": True, "message": "Paused"}
+            
+            elif operation == 'resume':
+                await self.audio_system.resume_music(session_id)
+                return {"success": True, "message": "Resumed"}
+            
+            elif operation == 'stop':
+                await self.audio_system.stop_music(session_id)
+                return {"success": True, "message": "Stopped"}
+            
+            elif operation == 'skip':
+                success = await self.audio_system.skip_track(session_id)
+                return {"success": success, "message": "Skipped" if success else "No more tracks"}
+            
+            elif operation == 'volume':
+                volume = params.get('volume', 100)
+                await self.audio_system.set_volume(volume, session_id)
+                return {"success": True, "message": f"Volume set to {volume}"}
+            
+            elif operation == 'now_playing':
+                track = await self.audio_system.get_now_playing(session_id)
+                return {"success": True, "track": track}
+            
+            elif operation == 'queue':
+                queue = await self.audio_system.get_queue(session_id)
+                return {"success": True, "queue": queue}
+            
+            elif operation == 'bass_boost':
+                await self.audio_system.apply_bass_boost(session_id)
+                return {"success": True, "message": "Bass boost applied"}
+            
+            elif operation == 'nightcore':
+                await self.audio_system.apply_nightcore_filter(session_id)
+                return {"success": True, "message": "Nightcore effect applied"}
+            
+            elif operation == 'clear_filters':
+                await self.audio_system.clear_filters(session_id)
+                return {"success": True, "message": "Filters cleared"}
+            
+            else:
+                return {"success": False, "error": f"Unknown operation: {operation}"}
+                
+        except Exception as e:
+            logger.error(f"❌ Audio control error: {e}")
             return {"success": False, "error": str(e)}
     
     async def voice_conversation(self, audio_input: bytes) -> bytes:

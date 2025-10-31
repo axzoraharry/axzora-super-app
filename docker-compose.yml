@@ -192,6 +192,24 @@ services:
       - "satyug.description=Reverse proxy and load balancer"
 
   # ============================================
+  # Lavalink - Audio Streaming Server
+  # ============================================
+  lavalink:
+    container_name: satyug-lavalink
+    image: ghcr.io/lavalink-devs/lavalink:4
+    volumes:
+      - ./lavalink/application.yml:/opt/Lavalink/application.yml
+      - lavalink-data:/opt/Lavalink/logs
+    ports:
+      - "2333:2333"
+    restart: unless-stopped
+    environment:
+      - LAVALINK_SERVER_PASSWORD=youshallnotpass
+    labels:
+      - "satyug.service=lavalink"
+      - "satyug.description=Audio streaming and music playback"
+
+  # ============================================
   # Portainer - Container Management UI
   # ============================================
   portainer:
@@ -214,6 +232,7 @@ volumes:
   nextcloud-data:
   postgres-data:
   redis-data:
+  lavalink-data:
   portainer-data:
 
 networks:

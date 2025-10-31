@@ -302,6 +302,50 @@ class VoiceGeolocationSystem(SystemComponent):
     async def health_check(self) -> bool:
         return self.process is not None and self.process.poll() is None
 
+class LavalinkServer(SystemComponent):
+    """Lavalink Audio Streaming Server"""
+    def __init__(self):
+        super().__init__("Lavalink", "Audio streaming and music playback")
+        self.port = 2333
+    
+    async def start(self):
+        logger.info(f"🎵 Starting {self.name}...")
+        try:
+            subprocess.run(
+                ["docker-compose", "up", "-d", "lavalink"],
+                cwd="/home/ubuntu/axzora-super-app",
+                check=True
+            )
+            self.status = "running"
+            logger.info(f"✅ {self.name} started on port {self.port}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to start {self.name}: {e}")
+            self.status = "error"
+            return False
+    
+    async def stop(self):
+        try:
+            subprocess.run(
+                ["docker-compose", "stop", "lavalink"],
+                cwd="/home/ubuntu/axzora-super-app",
+                check=True
+            )
+            self.status = "stopped"
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to stop {self.name}: {e}")
+            return False
+    
+    async def health_check(self) -> bool:
+        try:
+            import aiohttp
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"http://localhost:{self.port}/version", timeout=5) as resp:
+                    return resp.status == 200
+        except:
+            return False
+
 class GoogleAssistantBridge(SystemComponent):
     """Google Assistant Integration"""
     def __init__(self):
@@ -347,6 +391,7 @@ class MrHappyOrchestrator:
             "homeassistant": HomeAssistant(),
             "odoo": OdooERP(),
             "nextcloud": Nextcloud(),
+            "lavalink": LavalinkServer(),
             "mr_happy": MrHappyCore(),
             "voice_geo": VoiceGeolocationSystem(),
             "google_assistant": GoogleAssistantBridge()
@@ -357,6 +402,7 @@ class MrHappyOrchestrator:
             "homeassistant",
             "odoo",
             "nextcloud",
+            "lavalink",
             "mr_happy",
             "voice_geo",
             "google_assistant"
